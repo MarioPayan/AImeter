@@ -1,0 +1,23 @@
+[package]
+name = "ccmeter"
+version = "0.1.0"
+edition = "2021"
+description = "Claude Code usage — a statusline segment and a TUI, from the files Claude Code already writes"
+
+[dependencies]
+# ratatui re-exports crossterm (ratatui::crossterm) — no direct crossterm dep needed.
+ratatui = "0.29"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+# ponytail: no file watcher. The TUI already polls for keys; re-reading one JSON
+# file and stat()-ing the transcripts on a tick is cheaper than a notify thread.
+
+# `ccmeter line` runs on every statusline render. Optimise it even for `cargo run`,
+# and strip the binary so an always-installed tool stays small.
+[profile.release]
+opt-level = 3
+strip = true
+
+[profile.dev]
+opt-level = 1
