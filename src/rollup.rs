@@ -87,8 +87,15 @@ pub fn projects_dir() -> PathBuf {
     crate::limits::home().join(".claude").join("projects")
 }
 
+/// Our own directory, not a corner of `~/.claude`. The rollup is derived data we
+/// own, it will hold more than one provider's numbers eventually, and writing into
+/// another tool's config dir is a collision waiting to happen.
 pub fn cache_path() -> PathBuf {
-    crate::limits::home().join(".claude").join("ccmeter").join("rollup.json")
+    std::env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| crate::limits::home().join(".local").join("share"))
+        .join("aimeter")
+        .join("rollup.json")
 }
 
 /* ----------------------------------------------------------------- ingest ---- */
@@ -401,7 +408,7 @@ mod tests {
     /// and the offset must stop before it so the next pass reads it whole exactly once.
     #[test]
     fn a_half_written_line_is_left_for_the_next_pass() {
-        let dir = std::env::temp_dir().join(format!("ccmeter-partial-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("aimeter-partial-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("t.jsonl");
 
@@ -428,7 +435,7 @@ mod tests {
     /// it was found.
     #[test]
     fn walks_subagents_but_not_workflow_agents() {
-        let root = std::env::temp_dir().join(format!("ccmeter-walk-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("aimeter-walk-{}", std::process::id()));
         let session = root.join("-home-user-proj").join("sess-1");
         std::fs::create_dir_all(session.join("subagents").join("workflows").join("wf_abc")).unwrap();
         std::fs::create_dir_all(root.join("-home-user-proj")).unwrap();

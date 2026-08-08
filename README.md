@@ -1,10 +1,15 @@
-# ccmeter
+# aimeter
 
-Claude Code usage, where you already look.
+AI coding-tool usage, where you already look.
 
 A statusline segment showing your session, weekly and per-model limits, and a TUI for
-the history behind them. It reads the files Claude Code already writes — no API calls,
-no tokens, no daemon, nothing to keep running.
+the history behind them. It reads the files the tool already writes — no API calls, no
+tokens, no daemon, nothing to keep running.
+
+**Claude Code is the only provider today.** The name is the room to add others, not a
+claim that they exist: there is no provider abstraction yet, because one implementation
+does not tell you where the seam goes. The second provider is what will show that, and
+`limits.rs` / `rollup.rs` are already the two things that would split.
 
 ```
 [PONYTAIL]  [KAIZEN] 38 awaiting you  [USAGE] 5h 4% · 7d 77% · Fable 100%
@@ -17,18 +22,18 @@ Rust is pinned via `.tool-versions` (asdf).
 
 ```bash
 cargo build --release
-ln -sf "$PWD/target/release/ccmeter" ~/.local/bin/ccmeter
-ccmeter backfill      # ~0.5s, once
+ln -sf "$PWD/target/release/aimeter" ~/.local/bin/aimeter
+aimeter backfill      # ~0.5s, once
 ```
 
 ## The statusline segment
 
-`ccmeter line` prints one segment and exits. Claude Code has a single `statusLine`
+`aimeter line` prints one segment and exits. Claude Code has a single `statusLine`
 command, so compose it with whatever else you run — plugins cannot declare one:
 
 ```bash
 # ~/.claude/statusline.sh
-u=$(bash "$HOME/repos/Kaze/ccmeter/hooks/ccmeter-statusline.sh" 2>/dev/null)
+u=$(bash "$HOME/repos/Kaze/aimeter/hooks/aimeter-statusline.sh" 2>/dev/null)
 out="${out:+$out  }${u}"
 printf '%s' "$out"
 ```
@@ -40,11 +45,11 @@ Two properties it will not trade away, because it runs on every render forever:
 - **Fast.** ~2 ms. For comparison, anything that spawns `node` costs 60–100 ms.
 
 It also never reads stdin. Claude Code pipes JSON in, nothing here needs it, and a
-read on a terminal stdin would hang the first time you ran `ccmeter line` by hand.
+read on a terminal stdin would hang the first time you ran `aimeter line` by hand.
 
 ## The TUI
 
-`ccmeter` (or `ccmeter tui`) opens the dashboard: limit gauges with reset countdowns,
+`aimeter` (or `aimeter tui`) opens the dashboard: limit gauges with reset countdowns,
 today's tokens per model, a daily sparkline, and a model × window table.
 
 ```
@@ -65,7 +70,7 @@ No watcher and no server: it re-reads the limits every 2 s and the transcripts e
 | Panel | Source |
 |---|---|
 | Limits | `~/.claude.json` → `cachedUsageUtilization.utilization.limits[]` |
-| Tokens | `~/.claude/projects/**/*.jsonl`, rolled up into `~/.claude/ccmeter/rollup.json` |
+| Tokens | `~/.claude/projects/**/*.jsonl`, rolled up into `~/.claude/aimeter/rollup.json` |
 
 Only the `limits[]` array is parsed, never its siblings — `five_hour`, `nimbus_quill`,
 `iguana_necktie` and friends are internal codenames that churn, while the array is

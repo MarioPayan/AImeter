@@ -3,6 +3,16 @@
 version = 4
 
 [[package]]
+name = "aimeter"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "ratatui",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "allocator-api2"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -58,16 +68,6 @@ checksum = "5d262e149917187838d5b42777c8253bcb64500067342904e7d429499a6f277e"
 dependencies = [
  "find-msvc-tools",
  "shlex",
-]
-
-[[package]]
-name = "ccmeter"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "ratatui",
- "serde",
- "serde_json",
 ]
 
 [[package]]

@@ -314,7 +314,7 @@ fn draw_history(frame: &mut Frame, area: Rect, app: &App) {
     // empty one — a flat row of nothing would otherwise read as thirty quiet days.
     if values.iter().all(|&v| v == 0) {
         frame.render_widget(
-            Paragraph::new("no history yet — run `ccmeter backfill`").style(Style::new().fg(theme::dim())),
+            Paragraph::new("no history yet — run `aimeter backfill`").style(Style::new().fg(theme::dim())),
             inner,
         );
         return;
@@ -383,7 +383,7 @@ fn draw_windows(frame: &mut Frame, area: Rect, app: &App) {
 
 fn draw_help(frame: &mut Frame, area: Rect) {
     let lines = vec![
-        Line::styled("ccmeter", Style::new().fg(theme::accent()).add_modifier(Modifier::BOLD)),
+        Line::styled("aimeter", Style::new().fg(theme::accent()).add_modifier(Modifier::BOLD)),
         Line::raw(""),
         Line::raw("  q / esc   quit"),
         Line::raw("  r         re-read both sources now"),
@@ -424,7 +424,7 @@ fn draw(frame: &mut Frame, app: &App) {
     };
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::styled(" ccmeter ", Style::new().fg(theme::accent()).add_modifier(Modifier::BOLD)),
+            Span::styled(" aimeter ", Style::new().fg(theme::accent()).add_modifier(Modifier::BOLD)),
             Span::styled(
                 format!("{} {note}", if stale { "○" } else { "●" }),
                 Style::new().fg(if stale { theme::warn() } else { theme::dim() }),
@@ -721,6 +721,6 @@ mod tests {
         terminal.draw(|frame| draw(frame, &app)).unwrap();
         let text = terminal.backend().buffer().content().iter().map(|c| c.symbol()).collect::<String>();
         assert!(text.contains("is Claude Code running?"), "names the cause: {text}");
-        assert!(text.contains("ccmeter backfill"), "names the fix");
+        assert!(text.contains("aimeter backfill"), "names the fix");
     }
 }

@@ -9,7 +9,7 @@
 //!     missing segment.
 //!   - **It never blocks.** stdin is deliberately not read. Claude Code pipes JSON
 //!     in, but nothing here needs it, and a read on a terminal stdin would hang the
-//!     statusline forever the first time someone ran `ccmeter line` by hand.
+//!     statusline forever the first time someone ran `aimeter line` by hand.
 //!
 //! Severity comes from the API's own `severity` field rather than thresholds
 //! invented here — Anthropic knows when 77% is a warning better than we do.
