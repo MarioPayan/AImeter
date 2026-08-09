@@ -65,7 +65,9 @@ impl Severity {
 /// One limit window, flattened into just what a display needs.
 #[derive(Debug, Clone)]
 pub struct Limit {
-    /// Short display label: `5h`, `7d`, or the scoped model's name (`Fable`).
+    /// One-letter display label: `S` session, `W` week, or `@` plus the scoped
+    /// model's initial (`@F`). The `@` is what keeps a Sonnet-scoped `@S` from
+    /// being read as the session's `S`.
     pub label: String,
     pub percent: f64,
     pub severity: Severity,
@@ -86,10 +88,6 @@ impl Limit {
             .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
             .is_some_and(|when| when.timestamp() <= now)
     }
-
-    pub fn expired(&self) -> bool {
-        self.expired_at(chrono::Utc::now().timestamp())
-    }
 }
 
 /// What one read of the cache saw.
@@ -98,17 +96,6 @@ pub struct Snapshot {
     pub limits: Vec<Limit>,
     /// Milliseconds since the CLI last refreshed the cache, when it said.
     pub age_ms: Option<i64>,
-}
-
-/// "just now", "31m ago", "6h ago" — for showing how current the numbers are
-/// instead of asserting a binary fresh/stale the data cannot support.
-pub fn ago(age_ms: i64) -> String {
-    match age_ms / 1000 {
-        s if s < 60 => "just now".into(),
-        s if s < 3600 => format!("{}m ago", s / 60),
-        s if s < 86_400 => format!("{}h{:02} ago", s / 3600, (s % 3600) / 60),
-        s => format!("{}d ago", s / 86_400),
-    }
 }
 
 impl Snapshot {
@@ -176,10 +163,7 @@ pub fn home() -> PathBuf {
 }
 
 fn now_ms() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as i64)
-        .unwrap_or(0)
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
 }
 
 /// The freshest limits available, from whichever source has them.
@@ -192,11 +176,9 @@ pub fn read() -> Option<Snapshot> {
     let ours = crate::fetch::read_cached();
     let theirs = read_from(&claude_json_path());
     match (ours, theirs) {
-        (Some(a), Some(b)) => Some(if a.age_ms.unwrap_or(i64::MAX) <= b.age_ms.unwrap_or(i64::MAX) {
-            a
-        } else {
-            b
-        }),
+        (Some(a), Some(b)) => {
+            Some(if a.age_ms.unwrap_or(i64::MAX) <= b.age_ms.unwrap_or(i64::MAX) { a } else { b })
+        }
         (a, b) => a.or(b),
     }
 }
@@ -223,29 +205,29 @@ pub fn parse(raw: &str, now_ms: i64) -> Option<Snapshot> {
     if limits.is_empty() {
         return None;
     }
-    Some(Snapshot {
-        limits,
-        age_ms: cached.fetched_at_ms.map(|t| now_ms - t),
-    })
+    Some(Snapshot { limits, age_ms: cached.fetched_at_ms.map(|t| now_ms - t) })
 }
 
 /// A limit with no percent tells us nothing, so it is dropped rather than shown
 /// as zero — "0%" and "unknown" are very different claims to make about a ceiling.
 fn flatten(w: WireLimit) -> Option<Limit> {
     let percent = w.percent?;
-    let scoped_model = w
-        .scope
-        .and_then(|s| s.model)
-        .and_then(|m| m.display_name)
-        .filter(|n| !n.is_empty());
+    let scoped_model =
+        w.scope.and_then(|s| s.model).and_then(|m| m.display_name).filter(|n| !n.is_empty());
 
+    // One letter each, because the segment shares a line and these three windows are
+    // always the same three things. The scoped one takes `@` plus its model's initial:
+    // the mark is what distinguishes it, not the letter, so a Sonnet-scoped limit reads
+    // `@S` and never collides with the session's `S`.
     let label = match (scoped_model, w.kind.as_str()) {
-        (Some(model), _) => model,
-        (None, "session") => "5h".into(),
-        (None, "weekly_all") => "7d".into(),
-        (None, "weekly_scoped") => "7d·scoped".into(),
-        (None, "") => "limit".into(),
-        (None, other) => other.replace('_', " "),
+        (Some(model), _) => {
+            format!("@{}", model.chars().next().unwrap_or('?').to_uppercase())
+        }
+        (None, "session") => "S".into(),
+        (None, "weekly_all") => "W".into(),
+        (None, "weekly_scoped") => "@".into(),
+        (None, "") => "?".into(),
+        (None, other) => other.chars().next().unwrap_or('?').to_uppercase().to_string(),
     };
 
     Some(Limit {
@@ -288,12 +270,34 @@ mod tests {
     }"#;
 
     #[test]
-    fn reads_the_three_windows_and_names_the_scoped_one() {
+    fn reads_the_three_windows_and_marks_the_scoped_one() {
         let snap = parse(FIXTURE, 1000).expect("fixture parses");
         let labels: Vec<&str> = snap.limits.iter().map(|l| l.label.as_str()).collect();
-        assert_eq!(labels, ["5h", "7d", "Fable"]);
+        assert_eq!(labels, ["S", "W", "@F"]);
         assert_eq!(snap.limits[2].severity, Severity::Critical);
         assert_eq!(snap.limits[2].percent, 100.0);
+    }
+
+    /// The scoped label is `@` plus an initial, and the `@` is what disambiguates —
+    /// so a Sonnet-scoped limit is `@S` and cannot be read as the session's `S`.
+    /// A lowercase or missing display name must not produce a lowercase label.
+    #[test]
+    fn the_scoped_label_is_always_at_plus_a_capital() {
+        let scoped = |name: &str| {
+            let raw = format!(
+                r#"{{"cachedUsageUtilization":{{"fetchedAtMs":1,"utilization":{{"limits":[
+                    {{"kind":"weekly_scoped","percent":1,"scope":{{"model":{{"display_name":"{name}"}}}}}}
+                ]}}}}}}"#
+            );
+            parse(&raw, 1).unwrap().limits[0].label.clone()
+        };
+        assert_eq!(scoped("Fable"), "@F");
+        assert_eq!(scoped("Sonnet"), "@S");
+        assert_eq!(scoped("opus"), "@O");
+        // No model name at all: the mark alone still says "scoped to a model".
+        let bare = r#"{"cachedUsageUtilization":{"fetchedAtMs":1,"utilization":{"limits":[
+            {"kind":"weekly_scoped","percent":1}]}}}"#;
+        assert_eq!(parse(bare, 1).unwrap().limits[0].label, "@");
     }
 
     #[test]
@@ -303,14 +307,6 @@ mod tests {
         assert!(!parse(FIXTURE, 1000 + 30 * 60 * 1000).unwrap().is_stale());
         // Past the shortest reported window, the number is wrong, not just old.
         assert!(parse(FIXTURE, 1000 + STALE_AFTER_MS + 1).unwrap().is_stale());
-    }
-
-    #[test]
-    fn ago_reads_as_an_age() {
-        assert_eq!(ago(0), "just now");
-        assert_eq!(ago(31 * 60 * 1000), "31m ago");
-        assert_eq!(ago(6 * 3600 * 1000 + 5 * 60 * 1000), "6h05 ago");
-        assert_eq!(ago(3 * 86_400 * 1000), "3d ago");
     }
 
     /// The whole point of `#[serde(default)]`: a limit that loses `severity` and

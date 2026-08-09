@@ -1,9 +1,0 @@
-{
-  "name": "aimeter",
-  "description": "AI coding-tool usage where you already look: a statusline segment showing your session, weekly and per-model limits, and a TUI for the history behind them. Reads the files the tool already writes — no API calls, no tokens, no daemon. Claude Code today; more providers to come.",
-  "version": "0.1.0",
-  "author": {
-    "name": "Mario Payan"
-  },
-  "keywords": ["usage", "limits", "statusline", "tui", "observability"]
-}

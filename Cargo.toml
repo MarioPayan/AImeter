@@ -2,19 +2,15 @@
 name = "aimeter"
 version = "0.1.0"
 edition = "2021"
-description = "AI coding-tool usage as a statusline segment and a TUI. Claude Code today; the name is the room to add others."
+description = "AI coding-tool usage as a statusline segment. Claude Code today; the name is the room to add others."
 
 [dependencies]
-# ratatui re-exports crossterm (ratatui::crossterm) — no direct crossterm dep needed.
-ratatui = "0.29"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 # TLS comes from ureq's defaults (rustls). Blocking, because the one request this
 # makes happens in a short-lived child process that exists only to make it.
 ureq = { version = "2", features = ["json"] }
-# ponytail: no file watcher. The TUI already polls for keys; re-reading one JSON
-# file and stat()-ing the transcripts on a tick is cheaper than a notify thread.
 
 # `aimeter line` runs on every statusline render. Optimise it even for `cargo run`,
 # and strip the binary so an always-installed tool stays small.

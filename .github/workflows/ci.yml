@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    # Both, because the statusline hook and the detached-fetch child are the two
+    # things most likely to break on the platform nobody develops on.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      # Pinned to .tool-versions, so CI and the dev machine agree on lint output.
+      - run: rustup toolchain install 1.89.0 --profile minimal --component rustfmt,clippy
+      - run: rustup default 1.89.0
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      # Every test is fixture-driven and needs no ~/.claude, so the suite that runs
+      # here is the same one that runs on a dev machine.
+      - run: cargo test
+      # Preinstalled on the Linux runner only, and one lint of one script is the
+      # same on both platforms anyway.
+      - if: runner.os == 'Linux'
+        run: shellcheck statusline/aimeter-statusline.sh

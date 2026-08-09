@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="286" viewBox="0 0 720 286" role="img"
+     aria-label="The aimeter statusline segment in each of its states: healthy, warning, critical, reset, stale, and with the optional fill bar.">
+  <style>
+    .bg    { fill: #17181c; }
+    .edge  { fill: none; stroke: #2a2c33; stroke-width: 1; }
+    .seg   { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+             font-size: 15px; }
+    .lbl   { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+             font-size: 10.5px; fill: #5d626c; letter-spacing: 0.09em; }
+    .tag   { fill: #5f87af; }
+    .model { fill: #87afaf; }
+    .dim   { fill: #808080; }
+    .ok    { fill: #5faf5f; }
+    .warn  { fill: #d7af5f; }
+    .crit  { fill: #d75f5f; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="720" height="286" rx="6"/>
+  <rect class="edge" x="0.5" y="0.5" width="719" height="285" rx="6"/>
+
+  <text class="lbl" x="18" y="34">HEALTHY</text>
+  <text class="seg" x="104" y="34">
+    <tspan class="tag">◈</tspan><tspan class="dim"> </tspan
+    ><tspan class="model">Opus 5</tspan><tspan class="dim">·X · </tspan
+    ><tspan class="ok">23%</tspan><tspan class="dim"> │ </tspan
+    ><tspan class="ok">S</tspan><tspan class="dim">/</tspan><tspan class="ok">4%</tspan><tspan class="dim"> ↺2h11  </tspan
+    ><tspan class="ok">W</tspan><tspan class="dim">/</tspan><tspan class="ok">12%</tspan><tspan class="dim"> ↺6d  </tspan
+    ><tspan class="ok">@F</tspan><tspan class="dim">/</tspan><tspan class="ok">0%</tspan>
+  </text>
+
+  <text class="lbl" x="18" y="72">WARNING</text>
+  <text class="seg" x="104" y="72">
+    <tspan class="tag">◈</tspan><tspan class="dim"> </tspan
+    ><tspan class="model">Opus 5</tspan><tspan class="dim">·X · </tspan
+    ><tspan class="ok">23%</tspan><tspan class="dim"> │ </tspan
+    ><tspan class="ok">S</tspan><tspan class="dim">/</tspan><tspan class="ok">4%</tspan><tspan class="dim"> ↺2h11  </tspan
+    ><tspan class="warn">W</tspan><tspan class="dim">/</tspan><tspan class="warn">77%</tspan><tspan class="dim"> ↺3d  </tspan
+    ><tspan class="ok">@F</tspan><tspan class="dim">/</tspan><tspan class="ok">0%</tspan>
+  </text>
+
+  <text class="lbl" x="18" y="110">CRITICAL</text>
+  <text class="seg" x="104" y="110">
+    <tspan class="tag">◈</tspan><tspan class="dim"> </tspan
+    ><tspan class="model">Opus 5</tspan><tspan class="dim">·X · </tspan
+    ><tspan class="crit">96%</tspan><tspan class="dim"> │ </tspan
+    ><tspan class="ok">S</tspan><tspan class="dim">/</tspan><tspan class="ok">4%</tspan><tspan class="dim"> ↺2h11  </tspan
+    ><tspan class="warn">W</tspan><tspan class="dim">/</tspan><tspan class="warn">77%</tspan><tspan class="dim"> ↺3d  </tspan
+    ><tspan class="crit">@F</tspan><tspan class="dim">/</tspan><tspan class="crit">100%</tspan><tspan class="dim"> ↺3d</tspan>
+  </text>
+
+  <text class="lbl" x="18" y="148">RESET</text>
+  <text class="seg" x="104" y="148">
+    <tspan class="tag">◈</tspan><tspan class="dim"> </tspan
+    ><tspan class="model">Opus 5</tspan><tspan class="dim">·X · </tspan
+    ><tspan class="ok">23%</tspan><tspan class="dim"> │ </tspan
+    ><tspan class="dim">S/—  W/—  </tspan
+    ><tspan class="crit">@F</tspan><tspan class="dim">/</tspan><tspan class="crit">100%</tspan><tspan class="dim"> ↺3d</tspan>
+  </text>
+
+  <text class="lbl" x="18" y="186">STALE</text>
+  <text class="seg" x="104" y="186">
+    <tspan class="tag">◈</tspan><tspan class="dim"> </tspan
+    ><tspan class="model">Opus 5</tspan><tspan class="dim">·X · </tspan
+    ><tspan class="ok">23%</tspan><tspan class="dim"> │ S/4% ↺2h11  W/77% ↺3d  @F/100% ↺3d?</tspan>
+  </text>
+
+  <text class="lbl" x="18" y="224">--BAR</text>
+  <text class="seg" x="104" y="224">
+    <tspan class="tag">◈</tspan><tspan class="dim"> </tspan
+    ><tspan class="model">Opus 5</tspan><tspan class="dim">·X · </tspan
+    ><tspan class="ok">23%</tspan><tspan class="dim"> │ </tspan
+    ><tspan class="ok">S</tspan><tspan class="dim">/</tspan><tspan class="ok">4%</tspan><tspan class="dim">▁ ↺2h11  </tspan
+    ><tspan class="warn">W</tspan><tspan class="dim">/</tspan><tspan class="warn">77%</tspan><tspan class="dim">▇ ↺3d  </tspan
+    ><tspan class="crit">@F</tspan><tspan class="dim">/</tspan><tspan class="crit">100%</tspan><tspan class="dim">█ ↺3d</tspan>
+  </text>
+
+  <text class="lbl" x="18" y="262">NO_COLOR</text>
+  <text class="seg" x="104" y="262" fill="#cfd2d6">◈ Opus 5·X · 23% │ S/4% ↺2h11  W/77% ↺3d  @F/100% ↺3d</text>
+</svg>

@@ -1,35 +1,50 @@
-//! aimeter — Claude Code usage, from the files Claude Code already writes.
+//! aimeter — Claude Code usage as a statusline segment.
 //!
-//! Three entry points over two data sources: `~/.claude.json` for where you stand
-//! against your limits right now, and the transcripts under `~/.claude/projects`
-//! for how you got there.
+//! One job: print where you stand against your limits, fast enough to run on every
+//! statusline render. Three sources feed it — the payload Claude Code pipes in, the
+//! usage endpoint, and Claude Code's own `~/.claude.json` cache — and `line.rs`
+//! ranks them.
 
 mod fetch;
 mod limits;
 mod line;
-mod rollup;
-mod tui;
 
 const HELP: &str = "\
-aimeter — Claude Code usage
+aimeter — Claude Code usage, as a statusline segment
 
 USAGE:
-    aimeter [tui]     the dashboard (default)
-    aimeter line      one statusline segment, then exit
-    aimeter fetch     ask the usage endpoint for current limits, now
-    aimeter backfill  tally every transcript and cache the result
+    aimeter line [--bar]   one statusline segment, then exit
+    aimeter fetch          ask the usage endpoint for current limits, now
+    aimeter --version      print the version and exit
 
-The dashboard and the segment refresh both halves themselves — limits in a
-background child at most once a minute, the token tally inline. `fetch` and
-`backfill` exist so you can force either, or see why one is failing.
+`--bar` adds a fill block beside each percentage. Off by default: the digits
+already say what the block would, and only the digits are precise.
+
+`line` refreshes the limits itself, in a background child at most once a minute,
+and prints whatever is already on disk rather than waiting for the network.
+`fetch` exists so you can force that refresh, or see why it is failing.
+
+`fetch` reads the OAuth token in ~/.claude/.credentials.json to call an endpoint
+Anthropic does not document. It never writes that file, and every failure falls
+back to Claude Code's own cache. Set AIMETER_NO_FETCH to stop it reading the
+token at all; everything still works, only the model-scoped limit ages. See
+README.md.
 
 ENVIRONMENT:
+    AIMETER_NO_FETCH       never read the token or call the endpoint
     AIMETER_REFRESH_SECS   how stale the limits may get before a refresh (60)
+    NO_COLOR               print the segment without escape codes
 ";
 
 fn main() {
-    match std::env::args().nth(1).as_deref() {
-        Some("line") => line::main(),
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    match args.first().map(String::as_str) {
+        // The only flag, so `contains` beats a parser. If a second one ever appears,
+        // that is the moment to reach for one — not before.
+        Some("line") => line::main(args.iter().any(|a| a == "--bar")),
+        Some("-V") | Some("--version") | Some("version") => {
+            println!("aimeter {}", env!("CARGO_PKG_VERSION"))
+        }
         Some("fetch") => match fetch::fetch_now() {
             // Quiet on success when nobody is watching: this normally runs as a
             // detached child with its output pointed at /dev/null.
@@ -45,40 +60,12 @@ fn main() {
                 std::process::exit(1);
             }
         },
-        Some("backfill") => backfill(),
-        Some("-h") | Some("--help") | Some("help") => print!("{HELP}"),
-        Some("tui") | None => {
-            if let Err(e) = tui::main() {
-                eprintln!("aimeter: {e}");
-                std::process::exit(1);
-            }
-        }
+        // Bare `aimeter` prints help rather than guessing. `line` is the only thing
+        // anyone runs unattended, and it is never run without being asked for.
+        Some("-h") | Some("--help") | Some("help") | None => print!("{HELP}"),
         Some(other) => {
             eprintln!("aimeter: unknown command \"{other}\"\n\n{HELP}");
             std::process::exit(2);
         }
     }
-}
-
-fn backfill() {
-    let root = rollup::projects_dir();
-    if !root.is_dir() {
-        eprintln!("aimeter: no transcripts at {}", root.display());
-        std::process::exit(1);
-    }
-    let started = std::time::Instant::now();
-    let mut r = rollup::Rollup::load();
-    let touched = r.refresh(&root);
-    if let Err(e) = r.save() {
-        eprintln!("aimeter: could not write {}: {e}", rollup::cache_path().display());
-        std::process::exit(1);
-    }
-    let days = r.daily.len();
-    let total: u64 = r.all_time().values().map(|t| t.total()).sum();
-    println!(
-        "read {touched} transcript{} in {:.1}s — {days} days, {} tokens",
-        if touched == 1 { "" } else { "s" },
-        started.elapsed().as_secs_f64(),
-        tui::human(total),
-    );
 }
