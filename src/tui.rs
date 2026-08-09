@@ -471,7 +471,12 @@ pub fn main() -> std::io::Result<()> {
     }));
 
     let mut app = App::new();
-    let mut terminal = ratatui::init();
+    // `try_init` rather than `init`: the latter panics when there is no terminal
+    // to take over — piped output, a cron run — and a ratatui backtrace is a poor
+    // way to say "this needs a TTY".
+    let mut terminal = ratatui::try_init().map_err(|e| {
+        std::io::Error::new(e.kind(), format!("{e} — this needs a terminal (is output piped?)"))
+    })?;
 
     let result = run(&mut terminal, &mut app);
     ratatui::restore();

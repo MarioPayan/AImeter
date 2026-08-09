@@ -524,6 +524,17 @@ mod tests {
     /// in `~/.claude/stats-cache.json`. Two parsers agreeing to the token is
     /// evidence; a snapshot of our own output would not be.
     ///
+    /// Asserted two ways, because the two sources age differently. Claude Code
+    /// prunes old transcripts — the count here fell from 739 to 724 over a single
+    /// afternoon — while `stats-cache.json` keeps the totals it computed back when
+    /// those files still existed. So for older days our tally is legitimately
+    /// *lower*, and demanding equality would fail a little more every week.
+    ///
+    ///   - recent days must match **exactly**: nothing has been pruned yet, so any
+    ///     difference is a real regression in how records are attributed
+    ///   - older days must merely **not exceed** the recorded total: under is
+    ///     pruning, over is double-counting, and only one of those is our bug
+    ///
     /// Skips itself where there is no real data (CI, a fresh machine) rather than
     /// failing for the wrong reason.
     #[test]
@@ -542,7 +553,10 @@ mod tests {
         let mut rollup = Rollup::default();
         rollup.refresh(&root);
 
-        let mut checked = 0;
+        // The window within which transcripts are reliably still on disk.
+        let fresh_from = days_back(last, 7).unwrap_or_default();
+
+        let (mut exact, mut bounded, mut pruned) = (0, 0, 0);
         for day in days {
             let Some(date) = day["date"].as_str() else { continue };
             if date > last {
@@ -553,11 +567,26 @@ mod tests {
             for (model, tokens) in expected {
                 let want = tokens.as_u64().unwrap_or(0);
                 let got = ours.get(model).map(|t| t.total()).unwrap_or(0);
-                assert_eq!(got, want, "{date} {model}: tallied {got}, Claude Code says {want}");
-                checked += 1;
+                if date >= fresh_from.as_str() {
+                    assert_eq!(got, want, "{date} {model}: tallied {got}, Claude Code says {want}");
+                    exact += 1;
+                } else {
+                    assert!(
+                        got <= want,
+                        "{date} {model}: tallied {got}, over Claude Code's {want} — \
+                         under is pruning, over is double-counting"
+                    );
+                    bounded += 1;
+                    if got < want {
+                        pruned += 1;
+                    }
+                }
             }
         }
-        assert!(checked > 0, "cross-check found no overlapping days to compare");
-        eprintln!("cross-checked {checked} day/model totals against stats-cache.json");
+        assert!(exact > 0, "cross-check found no fresh days to compare exactly");
+        eprintln!(
+            "cross-checked {exact} day/model totals exactly, {bounded} as upper bounds \
+             ({pruned} show pruned transcripts)"
+        );
     }
 }
