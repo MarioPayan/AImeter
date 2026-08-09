@@ -46,6 +46,20 @@ impl Severity {
             _ => Severity::Normal,
         }
     }
+
+    /// Our own thresholds, used only for numbers that arrive without a severity.
+    ///
+    /// The statusline's stdin payload carries `used_percentage` and nothing about
+    /// how alarmed to be, so this is a judgement the API normally makes for us.
+    /// Calibrated against what it actually returned: 0–4% normal, 78% warning,
+    /// 100% critical.
+    pub fn from_percent(percent: f64) -> Self {
+        match percent {
+            p if p >= 90.0 => Severity::Critical,
+            p if p >= 50.0 => Severity::Warning,
+            _ => Severity::Normal,
+        }
+    }
 }
 
 /// One limit window, flattened into just what a display needs.
