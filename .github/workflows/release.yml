@@ -16,10 +16,30 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       # --verify-tag so a mistyped tag fails here rather than producing an empty
-      # release that install.sh would then 404 against.
+      # release that install.sh would then 404 against. The notes say which file to
+      # take, because "three tarballs, no guidance" is not a download page.
       - env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
+        run: |
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes '
+          Your Claude Code rate limits, in the statusline. Grab the binary for your
+          machine, `tar -xzf` it, and put `aimeter` on your `PATH`.
+
+          | Platform | File |
+          |---|---|
+          | Linux, Intel/AMD | `aimeter-x86_64-unknown-linux-gnu.tar.gz` |
+          | macOS, Apple silicon | `aimeter-aarch64-apple-darwin.tar.gz` |
+          | macOS, Intel | `aimeter-x86_64-apple-darwin.tar.gz` |
+
+          Or let the installer pick:
+
+          ```
+          curl -fsSL https://raw.githubusercontent.com/MarioPayan/aimeter/main/install.sh | sh
+          ```
+
+          Setup and what every part of the segment means:
+          https://github.com/MarioPayan/aimeter#readme
+          '
 
   build:
     needs: create
