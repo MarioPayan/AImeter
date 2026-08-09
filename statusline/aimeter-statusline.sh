@@ -6,8 +6,8 @@
 # prints nothing and exits 0 on any error — a statusline that writes an error
 # message corrupts the console it is drawn in.
 #
-# ponytail: no arg parsing, no config, no caching. The binary is ~2ms; a wrapper
-# that tried to memoise it would cost more than it saved.
+# No arg parsing, no config, no caching. The binary is ~2ms; a wrapper that tried
+# to memoise it would cost more than it saved.
 
 bin="${AIMETER_BIN:-}"
 if [ -z "$bin" ]; then

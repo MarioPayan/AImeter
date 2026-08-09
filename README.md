@@ -12,100 +12,60 @@ does not tell you where the seam goes. The second provider is what will show tha
 `limits.rs` is where it would land.
 
 ```
-[PONYTAIL]  [KAIZEN] 38 awaiting you  ◈ Opus 5·X · 37% │ S/12% ↺34m  W/2% ↺6d  @F/0%
-                                      ╰──────┬───────╯   ╰──────────────┬──────────────╯
-                                       this session,              your allowance,
-                                         right now                   over time
+◈ Opus 5·X · 37% │ S/12% ↺34m  W/2% ↺6d  @F/0%
+╰──────┬───────╯   ╰──────────────┬─────────────╯
+  this session,              your allowance,
+    right now                    over time
 ```
 
-Left of the divider: the model, its reasoning effort (`X` for xhigh), and how full the
-context window is. Right of it: how much of each limit you have spent and when it resets
-— `S` session, `W` week, `@F` the window scoped to Fable. Colour says which one needs
-you; the slash and the clock stay grey so they never compete for that job.
+## Install
+
+Nothing to build. **Ask Claude Code:**
+
+> Install aimeter from github.com/MarioPayan/aimeter and wire it into my statusline
+
+Or do it yourself — this downloads the prebuilt binary for your platform, puts it in
+`~/.local/bin`, and prints the snippet to add:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/MarioPayan/aimeter/main/install.sh | sh
+```
+
+It is thirty lines and worth reading before you pipe it anywhere, which you can do at
+[install.sh](install.sh). It installs a binary and prints instructions; it does not touch
+your statusline script, because Claude Code runs a single `statusLine` command and
+silently rewriting the file that produces it is not an installer's business.
+
+From source, if you would rather:
+
+```bash
+cargo install --git https://github.com/MarioPayan/aimeter
+```
 
 ## Reading the segment
 
-![The segment in each of its states](segment.svg)
+![Every part of the segment, the colours and what they mean, the reasoning-effort marks, and every value a window can show](segment.svg)
 
-Every piece, and every value it can take.
+A few of those deserve the reasoning behind them.
 
-### The shape
+**`@S` is the Sonnet-scoped window and never the session.** The scoped label is `@` plus
+the model's initial, and the `@` is what distinguishes it — not the letter — so a model
+whose name starts with `S` cannot be mistaken for the 5-hour window.
 
-```
-◈  Opus 5  ·X   ·  23%   │   S / 4%  ↺2h11
-│  │       │       │     │   │ │ │   │
-│  │       │       │     │   │ │ │   └─ when this window resets
-│  │       │       │     │   │ │ └───── how much of it you have spent
-│  │       │       │     │   │ └─────── separator, always grey
-│  │       │       │     │   └───────── which window
-│  │       │       │     └───────────── divider: session ends, allowance begins
-│  │       │       └─────────────────── how full the context window is
-│  │       └─────────────────────────── reasoning effort
-│  └─────────────────────────────────── the model you are talking to
-└────────────────────────────────────── the segment mark
-```
+**`MAX` spells itself out** because `medium` already took `M`. An effort level this does
+not recognise prints nothing at all; a wrong letter is worse than none.
 
-### Windows
+**Severity is the API's judgement, not ours.** Wherever the response carries a `severity`
+field it is used as sent — Anthropic knows when 78% is a warning better than a threshold
+invented here. Only two numbers arrive without one, the context window and stdin's rate
+limits, and those fall back to 0–49 normal, 50–89 warning, 90 and up critical.
 
-| Label | Window | Where it comes from |
-|---|---|---|
-| `S` | session, the 5-hour window | stdin, or the usage endpoint |
-| `W` | the 7-day window across all models | stdin, or the usage endpoint |
-| `@F` | the 7-day window scoped to one model — `@` plus its initial | usage endpoint or `~/.claude.json` only |
-| `@` | a scoped window whose model has no name | as above |
+**Colour has exactly one job:** saying which window needs you. So punctuation never takes
+a severity colour, and anything stale or already reset goes grey whatever its severity —
+a red 100% that is six hours old is a claim this cannot support.
 
-`@S` is the Sonnet-scoped window and never the session: the `@` is what distinguishes
-them, not the letter, so a model whose name starts with `S` cannot be misread.
-
-### Reasoning effort
-
-| Mark | `effort.level` |
-|---|---|
-| `L` | low |
-| `M` | medium |
-| `H` | high |
-| `X` | xhigh |
-| `MAX` | max |
-
-`max` spells itself out because `medium` already has `M`. A level this doesn't recognise
-prints nothing — a wrong letter is worse than none.
-
-### Values
-
-| Shown | Means |
-|---|---|
-| `4%` | percent of the window spent, rounded |
-| `—` | the window has already reset, so the last reading describes a counter that no longer exists |
-| `↺18m` | resets in 18 minutes — minutes under an hour |
-| `↺2h11` | resets in 2 hours 11 minutes — hours and minutes under a day |
-| `↺6d` | resets in 6 days — whole days beyond that |
-| *(no clock)* | the window reported no `resets_at`. The scoped window does this in the wild |
-| `?` at the end | at least one number on the line is more than six hours old |
-| `▁▂▃▄▅▆▇█` | the `--bar` fill, eight levels across 0–100% |
-
-### Colour
-
-Severity comes from the API's own `severity` field wherever it sends one — Anthropic
-knows when 78% is a warning better than a threshold invented here. The context window and
-stdin's rate limits send a percentage and no opinion, so those use 0–49 normal, 50–89
-warning, 90+ critical.
-
-| Role | xterm-256 | Hex | Used for |
-|---|---|---|---|
-| mark | 67 | `#5f87af` | the leading `◈` |
-| model | 109 | `#87afaf` | the model name |
-| normal | 71 | `#5faf5f` | a window with room |
-| warning | 179 | `#d7af5f` | severity `warning` |
-| critical | 167 | `#d75f5f` | severity `critical` |
-| dim | 244 | `#808080` | every slash, clock, divider and effort mark — and *any* value that is stale or reset |
-
-Two rules hold everywhere. **Punctuation is never coloured by severity** — the slash, the
-clock, the divider and the `·X` stay grey, so colour has exactly one job: saying which
-window needs you. And **a stale or reset value is always grey**, whatever its severity: a
-red 100% that is six hours old is a claim this cannot support.
-
-Set `NO_COLOR` to drop the escapes entirely. The `—`, the `?` and the countdowns all
-survive, which is why they are text rather than colour.
+Set `NO_COLOR` to drop the escapes entirely. The `—`, the `?` and the countdowns are all
+text rather than colour precisely so they survive that.
 
 ## What it reads, and what that costs you
 
@@ -150,14 +110,21 @@ Only the `limits[]` array is parsed, never its siblings — `five_hour`, `nimbus
 `iguana_necktie` and friends are internal codenames that churn, while the array is
 self-describing and carries its own severity.
 
-## Build
+## Working on it
 
-Rust is pinned via `.tool-versions` (asdf).
+Rust is pinned via `.tool-versions` (asdf). CI runs the same four checks on Linux and
+macOS, so if these pass locally they pass there.
 
 ```bash
 cargo build --release
-ln -sf "$PWD/target/release/aimeter" ~/.local/bin/aimeter
+cargo test
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
 ```
+
+`segment.svg` is generated rather than hand-drawn. Run `python3 tools/segment-svg.py`
+after changing the segment's shape or palette, so the legend cannot quietly drift from
+what the binary actually prints.
 
 ## The statusline segment
 
