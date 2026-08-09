@@ -4,6 +4,7 @@
 //! against your limits right now, and the transcripts under `~/.claude/projects`
 //! for how you got there.
 
+mod fetch;
 mod limits;
 mod line;
 mod rollup;
@@ -15,16 +16,35 @@ aimeter — Claude Code usage
 USAGE:
     aimeter [tui]     the dashboard (default)
     aimeter line      one statusline segment, then exit
+    aimeter fetch     ask the usage endpoint for current limits, now
     aimeter backfill  tally every transcript and cache the result
 
-The dashboard and the segment both refresh the tally themselves; `backfill` only
-exists so the first run's few seconds happen when you asked for them rather than
-the first time you open the TUI.
+The dashboard and the segment refresh both halves themselves — limits in a
+background child at most once a minute, the token tally inline. `fetch` and
+`backfill` exist so you can force either, or see why one is failing.
+
+ENVIRONMENT:
+    AIMETER_REFRESH_SECS   how stale the limits may get before a refresh (60)
 ";
 
 fn main() {
     match std::env::args().nth(1).as_deref() {
         Some("line") => line::main(),
+        Some("fetch") => match fetch::fetch_now() {
+            // Quiet on success when nobody is watching: this normally runs as a
+            // detached child with its output pointed at /dev/null.
+            Ok(_) => {
+                if let Some(s) = limits::read() {
+                    for limit in &s.limits {
+                        println!("{:<8} {:>5.0}%", limit.label, limit.percent);
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("aimeter: {e}");
+                std::process::exit(1);
+            }
+        },
         Some("backfill") => backfill(),
         Some("-h") | Some("--help") | Some("help") => print!("{HELP}"),
         Some("tui") | None => {

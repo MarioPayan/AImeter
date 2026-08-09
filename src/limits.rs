@@ -168,12 +168,27 @@ fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-/// Read and flatten the cache. `None` when the file is missing, unreadable, not
-/// JSON, or carries no limits — every one of which is "say nothing", not "crash".
+/// The freshest limits available, from whichever source has them.
+///
+/// Two copies exist: ours, fetched straight from the usage endpoint, and Claude
+/// Code's, refreshed on its own schedule. Whichever was fetched more recently
+/// wins — so this keeps working unchanged if the endpoint stops answering, and
+/// needs no flag to say which one is in play.
 pub fn read() -> Option<Snapshot> {
-    read_from(&claude_json_path())
+    let ours = crate::fetch::read_cached();
+    let theirs = read_from(&claude_json_path());
+    match (ours, theirs) {
+        (Some(a), Some(b)) => Some(if a.age_ms.unwrap_or(i64::MAX) <= b.age_ms.unwrap_or(i64::MAX) {
+            a
+        } else {
+            b
+        }),
+        (a, b) => a.or(b),
+    }
 }
 
+/// Read and flatten one file. `None` when it is missing, unreadable, not JSON, or
+/// carries no limits — every one of which is "say nothing", not "crash".
 pub fn read_from(path: &std::path::Path) -> Option<Snapshot> {
     let raw = std::fs::read_to_string(path).ok()?;
     parse(&raw, now_ms())

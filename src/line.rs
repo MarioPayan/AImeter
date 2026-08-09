@@ -75,7 +75,13 @@ pub fn render(snapshot: &Snapshot, colour_on: bool) -> Option<String> {
 }
 
 /// Print the segment. Any failure at all is silence.
+///
+/// The refresh is kicked off first and deliberately not waited for: this call
+/// prints what is already on disk, and the child it spawned improves what the
+/// *next* call prints. That is what keeps the statusline in single-digit
+/// milliseconds while the numbers stay a minute old at worst.
 pub fn main() {
+    crate::fetch::refresh_in_background();
     let Some(snapshot) = crate::limits::read() else { return };
     if let Some(out) = render(&snapshot, use_colour()) {
         print!("{out}");

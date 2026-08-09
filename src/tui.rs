@@ -171,6 +171,9 @@ impl App {
     }
 
     fn refresh_limits(&mut self) {
+        // Same background refresh the statusline uses, for the same reason: the
+        // draw loop must not wait on a TLS handshake. The next tick picks it up.
+        crate::fetch::refresh_in_background();
         self.snapshot = crate::limits::read();
         self.limits_read = Instant::now();
     }

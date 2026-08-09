@@ -87,15 +87,18 @@ pub fn projects_dir() -> PathBuf {
     crate::limits::home().join(".claude").join("projects")
 }
 
-/// Our own directory, not a corner of `~/.claude`. The rollup is derived data we
-/// own, it will hold more than one provider's numbers eventually, and writing into
-/// another tool's config dir is a collision waiting to happen.
-pub fn cache_path() -> PathBuf {
+/// Our own directory, not a corner of `~/.claude`. What lives here is derived data
+/// we own, it will hold more than one provider's numbers eventually, and writing
+/// into another tool's config dir is a collision waiting to happen.
+pub fn data_dir() -> PathBuf {
     std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
         .unwrap_or_else(|| crate::limits::home().join(".local").join("share"))
         .join("aimeter")
-        .join("rollup.json")
+}
+
+pub fn cache_path() -> PathBuf {
+    data_dir().join("rollup.json")
 }
 
 /* ----------------------------------------------------------------- ingest ---- */
