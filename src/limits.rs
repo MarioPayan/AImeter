@@ -59,6 +59,25 @@ pub struct Limit {
     pub resets_at: Option<String>,
 }
 
+impl Limit {
+    /// The window this percentage describes has already rolled over.
+    ///
+    /// Worth its own concept rather than folding into staleness: an old reading of
+    /// a *current* window is still roughly right, but once `resets_at` passes, the
+    /// counter went back to zero and the number is not old — it is wrong. Observed
+    /// in the wild at 78% for a weekly window that had reset six hours earlier.
+    pub fn expired_at(&self, now: i64) -> bool {
+        self.resets_at
+            .as_deref()
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+            .is_some_and(|when| when.timestamp() <= now)
+    }
+
+    pub fn expired(&self) -> bool {
+        self.expired_at(chrono::Utc::now().timestamp())
+    }
+}
+
 /// What one read of the cache saw.
 #[derive(Debug, Clone)]
 pub struct Snapshot {

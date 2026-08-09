@@ -230,8 +230,12 @@ fn draw_limits(frame: &mut Frame, area: Rect, app: &App) {
             label,
         );
 
-        let colour = if stale { theme::dim() } else { severity_colour(limit.severity) };
-        let ratio = (limit.percent / 100.0).clamp(0.0, 1.0);
+        // An expired window's percentage describes a counter that has since gone
+        // back to zero — draw no bar and no number rather than a confident wrong one.
+        let expired = limit.expired();
+        let colour =
+            if stale || expired { theme::dim() } else { severity_colour(limit.severity) };
+        let ratio = if expired { 0.0 } else { (limit.percent / 100.0).clamp(0.0, 1.0) };
         // Drawn by hand rather than with `Gauge`: Gauge centres a label over the
         // bar and punches a blank cell there even when the label is empty, which
         // reads as a gap in the fill. Two repeated characters have no such opinion.
@@ -245,12 +249,20 @@ fn draw_limits(frame: &mut Frame, area: Rect, app: &App) {
             bar,
         );
         frame.render_widget(
-            Paragraph::new(format!("{:>4}%", limit.percent.round() as i64))
-                .style(Style::new().fg(colour).add_modifier(Modifier::BOLD)),
+            Paragraph::new(if expired {
+                format!("{:>5}", "—")
+            } else {
+                format!("{:>4}%", limit.percent.round() as i64)
+            })
+            .style(Style::new().fg(colour).add_modifier(Modifier::BOLD)),
             pct,
         );
 
-        let when = limit.resets_at.as_deref().map(until).unwrap_or_default();
+        let when = if expired {
+            "  reset".to_string()
+        } else {
+            limit.resets_at.as_deref().map(until).unwrap_or_default()
+        };
         frame.render_widget(
             Paragraph::new(format!(" {when}")).style(Style::new().fg(theme::dim())),
             reset,

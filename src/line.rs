@@ -35,13 +35,21 @@ fn use_colour() -> bool {
 }
 
 fn segment(limit: &Limit, stale: bool, colour_on: bool) -> String {
-    let body = format!("{} {}%", limit.label, limit.percent.round() as i64);
+    // A window that has already reset gets no number at all. Printing the last
+    // reading would be worse than printing nothing: it is not an old measurement
+    // of the current window, it is a measurement of a window that no longer exists.
+    let expired = limit.expired();
+    let body = if expired {
+        format!("{} —", limit.label)
+    } else {
+        format!("{} {}%", limit.label, limit.percent.round() as i64)
+    };
     if !colour_on {
         return body;
     }
     // Stale numbers are greyed regardless of severity: a red 100% that is actually
     // an hour old is a claim we cannot support.
-    let c = if stale { DIM } else { colour(limit.severity) };
+    let c = if stale || expired { DIM } else { colour(limit.severity) };
     format!("{c}{body}{RESET}")
 }
 
@@ -81,10 +89,13 @@ mod tests {
     use super::*;
     use crate::limits::parse;
 
+    /// Reset times are deliberately far in the future. A fixture dated "tomorrow"
+    /// passes until tomorrow, then starts asserting that live windows render as
+    /// expired — which is how the two tests below broke once the date rolled over.
     const FIXTURE: &str = r#"{"cachedUsageUtilization":{"fetchedAtMs":1000,"utilization":{"limits":[
-        {"kind":"session","percent":4,"severity":"normal","resets_at":"2026-08-09T01:30:00Z"},
-        {"kind":"weekly_all","percent":77,"severity":"warning","resets_at":"2026-08-09T11:59:59Z"},
-        {"kind":"weekly_scoped","percent":100,"severity":"critical","resets_at":"2026-08-09T11:59:59Z",
+        {"kind":"session","percent":4,"severity":"normal","resets_at":"2099-01-01T01:30:00Z"},
+        {"kind":"weekly_all","percent":77,"severity":"warning","resets_at":"2099-01-01T11:59:59Z"},
+        {"kind":"weekly_scoped","percent":100,"severity":"critical","resets_at":"2099-01-01T11:59:59Z",
          "scope":{"model":{"display_name":"Fable"}}}
     ]}}}"#;
 
@@ -111,6 +122,25 @@ mod tests {
         let coloured = render(&old, true).unwrap();
         assert!(coloured.ends_with('?'));
         assert!(!coloured.contains("\x1b[38;5;167m"), "stale never shows red: {coloured:?}");
+    }
+
+    /// The case that prompted this: every window had reset hours earlier, and the
+    /// segment was still reporting `7d 78% · Fable 100%` from before the rollover.
+    #[test]
+    fn a_window_that_has_reset_shows_no_number() {
+        let raw = r#"{"cachedUsageUtilization":{"fetchedAtMs":1,"utilization":{"limits":[
+            {"kind":"session","percent":0,"severity":"normal","resets_at":"2026-08-09T07:29:59Z"},
+            {"kind":"weekly_all","percent":78,"severity":"warning","resets_at":"2026-08-09T11:59:59Z"},
+            {"kind":"weekly_scoped","percent":100,"severity":"critical",
+             "resets_at":"2099-01-01T00:00:00Z","scope":{"model":{"display_name":"Fable"}}}
+        ]}}}"#;
+        let snap = parse(raw, 1).unwrap();
+        // The first two have passed; the third has not, so it keeps its number.
+        assert_eq!(render(&snap, false).unwrap(), "[USAGE] 5h — · 7d — · Fable 100%");
+
+        let coloured = render(&snap, true).unwrap();
+        assert!(!coloured.contains("\x1b[38;5;179m"), "an expired window is never amber: {coloured:?}");
+        assert!(coloured.contains("\x1b[38;5;167mFable 100%"), "the live one keeps its red");
     }
 
     #[test]
