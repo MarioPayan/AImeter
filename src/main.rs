@@ -34,6 +34,8 @@ token at all; everything still works, only the model-scoped limit ages. See
 README.md.
 
 ENVIRONMENT:
+    AIMETER_ASCII            1 forces plain-ASCII glyphs, 0 forbids the fallback;
+                             unset, a non-UTF-8 locale switches it on by itself
     AIMETER_NO_FETCH         no network at all: no token read, no update check
     AIMETER_NO_UPDATE_CHECK  never ask GitHub whether there is a newer release
     AIMETER_REFRESH_SECS     how stale the limits may get before a refresh (60)

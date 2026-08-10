@@ -142,6 +142,7 @@ than none.
 
 | Variable | Effect |
 |---|---|
+| `AIMETER_ASCII` | `1` forces plain-ASCII glyphs (`* \| ~ ^ .`), `0` forbids the fallback; unset, a non-UTF-8 locale switches it on automatically |
 | `AIMETER_NO_FETCH` | never read the token, and make no network call at all |
 | `AIMETER_NO_UPDATE_CHECK` | never ask GitHub whether there is a newer release |
 | `AIMETER_REFRESH_SECS` | how stale the limits may get before a background refresh (60) |
@@ -153,6 +154,13 @@ hyperlink to the releases page — Cmd-click on macOS, Ctrl-click elsewhere. Ter
 without hyperlink support simply show the arrow, which is why it has to mean something
 on its own. Terminal.app is one of those; Windows Terminal may need `FORCE_HYPERLINK=1`
 set before launching Claude Code.
+
+Whether `◈ ↺ ▁` render at all is a property of the viewer's font, and nothing on the
+far side of a pipe can ask a font what it covers — the cursor-probing trick needs to own
+the terminal, which a statusline child must never do to the console it serves. What *is*
+detectable is a non-UTF-8 locale, where the glyphs are guaranteed to mangle: there the
+segment switches to ASCII by itself (`* Opus 5.X . 37% | S/4% ~2h11 ... ^`), and
+`AIMETER_ASCII=1` forces the same for UTF-8 terminals whose font lies.
 
 `aimeter line --bar` adds a fill block beside each percentage. Off by default: the digits
 already say what the block would, and only the digits are precise.

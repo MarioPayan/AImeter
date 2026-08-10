@@ -54,6 +54,58 @@ pub struct Style {
     /// this is news, not an alarm, and it is sharing a line with numbers that
     /// actually are.
     pub update: bool,
+    /// Plain ASCII instead of `◈ │ ↺ ↑ ▁`. Whether a glyph renders is a property
+    /// of the viewer's font, which nothing on the far side of a pipe can query —
+    /// but a non-UTF-8 locale guarantees breakage, and that *is* detectable, so
+    /// this switches on automatically there and by hand (`AIMETER_ASCII`) for
+    /// fonts that lie.
+    pub ascii: bool,
+}
+
+impl Style {
+    fn mark(&self) -> &'static str {
+        if self.ascii {
+            "*"
+        } else {
+            "◈"
+        }
+    }
+    fn divider(&self) -> &'static str {
+        if self.ascii {
+            " |"
+        } else {
+            " │"
+        }
+    }
+    /// Joins the effort mark to the model, and separates identity from context.
+    fn dot(&self) -> &'static str {
+        if self.ascii {
+            "."
+        } else {
+            "·"
+        }
+    }
+    fn resets(&self) -> &'static str {
+        if self.ascii {
+            "~"
+        } else {
+            "↺"
+        }
+    }
+    fn gone(&self) -> &'static str {
+        if self.ascii {
+            "-"
+        } else {
+            "—"
+        }
+    }
+    fn arrow(&self) -> &'static str {
+        if self.ascii {
+            " ^"
+        } else {
+            " ↑"
+        }
+    }
 }
 
 /* ----------------------------------------------------------------- session ---- */
@@ -234,6 +286,37 @@ fn use_colour() -> bool {
     std::env::var_os("NO_COLOR").is_none()
 }
 
+/// Whether to fall back to ASCII glyphs.
+///
+/// `AIMETER_ASCII` decides when set (`0` forbids, anything else forces). Unset,
+/// the locale decides: a terminal not running UTF-8 *will* mangle `◈ ↺ ▁`, and
+/// that is the one glyph failure a pipe can actually see coming. Font coverage —
+/// tofu in a UTF-8 terminal whose font lacks a codepoint — is invisible from
+/// here, which is what the manual override is for.
+fn use_ascii() -> bool {
+    let get = |k: &str| std::env::var(k).ok();
+    match get("AIMETER_ASCII").as_deref().map(str::trim) {
+        Some("0") => false,
+        Some(v) if !v.is_empty() => true,
+        _ => !locale_is_utf8(
+            get("LC_ALL").as_deref(),
+            get("LC_CTYPE").as_deref(),
+            get("LANG").as_deref(),
+        ),
+    }
+}
+
+/// POSIX precedence: `LC_ALL` beats `LC_CTYPE` beats `LANG`, empty counts as
+/// unset, and all three unset is the C locale — which is ASCII.
+fn locale_is_utf8(lc_all: Option<&str>, lc_ctype: Option<&str>, lang: Option<&str>) -> bool {
+    let effective =
+        [lc_all, lc_ctype, lang].into_iter().flatten().map(str::trim).find(|s| !s.is_empty());
+    effective.is_some_and(|s| {
+        let s = s.to_ascii_lowercase();
+        s.contains("utf-8") || s.contains("utf8")
+    })
+}
+
 fn paint(text: &str, code: &str, on: bool) -> String {
     if on {
         format!("{code}{text}{RESET}")
@@ -263,11 +346,16 @@ fn link(text: &str, url: &str, on: bool) -> String {
     }
 }
 
-/// `▁▂▃▄▅▆▇█` across 0–100%, for `--bar`.
-fn fill(percent: f64) -> &'static str {
+/// `▁▂▃▄▅▆▇█` across 0–100%, for `--bar` — or an ASCII ramp of rising density.
+fn fill(percent: f64, ascii: bool) -> &'static str {
     const LEVELS: [&str; 8] = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
+    const PLAIN: [&str; 8] = [".", ":", "-", "=", "+", "*", "#", "%"];
     let i = ((percent / 100.0 * 8.0).floor().max(0.0) as usize).min(7);
-    LEVELS[i]
+    if ascii {
+        PLAIN[i]
+    } else {
+        LEVELS[i]
+    }
 }
 
 /// `18m`, `2h11`, `6d` — the countdown, at the precision that changes a decision.
@@ -300,7 +388,7 @@ fn window(limit: &Limit, stale: bool, st: Style, now: i64) -> String {
     // reading would be worse than printing nothing: it is not an old measurement of
     // the current window, it is a measurement of a window that no longer exists.
     let value =
-        if expired { "—".to_string() } else { format!("{}%", limit.percent.round() as i64) };
+        if expired { st.gone().to_string() } else { format!("{}%", limit.percent.round() as i64) };
     // Stale numbers are greyed regardless of severity: a red 100% that is actually
     // six hours old is a claim we cannot support.
     let lit = if stale || expired { DIM } else { colour(limit.severity) };
@@ -310,14 +398,14 @@ fn window(limit: &Limit, stale: bool, st: Style, now: i64) -> String {
     out.push_str(&paint("/", DIM, st.colour));
     out.push_str(&paint(&value, lit, st.colour));
     if st.bar && !expired {
-        out.push_str(&paint(fill(limit.percent), DIM, st.colour));
+        out.push_str(&paint(fill(limit.percent, st.ascii), DIM, st.colour));
     }
     // No clock when the window will not say. `resets_at` comes back null on the
     // model-scoped limit in the wild, and an absent countdown is honest where a
     // borrowed one — the two weekly windows do reset together — would be a guess.
     if !expired {
         if let Some(left) = limit.resets_at.as_deref().and_then(|r| until(r, now)) {
-            out.push_str(&paint(&format!(" ↺{left}"), DIM, st.colour));
+            out.push_str(&paint(&format!(" {}{left}", st.resets()), DIM, st.colour));
         }
     }
     out
@@ -345,13 +433,13 @@ pub fn render_at(
     if let Some(model) = session.model_name() {
         identity.push_str(&paint(model, MODEL, st.colour));
         if let Some(mark) = session.effort_mark() {
-            identity.push_str(&paint(&format!("·{mark}"), DIM, st.colour));
+            identity.push_str(&paint(&format!("{}{mark}", st.dot()), DIM, st.colour));
         }
     }
     if let Some(pct) = session.context_percent() {
         let lit = colour(Severity::from_percent(pct));
         if !identity.is_empty() {
-            identity.push_str(&paint(" · ", DIM, st.colour));
+            identity.push_str(&paint(&format!(" {} ", st.dot()), DIM, st.colour));
         }
         identity.push_str(&paint(&format!("{}%", pct.round() as i64), lit, st.colour));
     }
@@ -363,14 +451,14 @@ pub fn render_at(
     // Right of the divider: your allowance, over time.
     let windows: Vec<String> = limits.iter().map(|(l, stale)| window(l, *stale, st, now)).collect();
 
-    let mut out = paint("◈", TAG, st.colour);
+    let mut out = paint(st.mark(), TAG, st.colour);
     if !identity.is_empty() {
         out.push(' ');
         out.push_str(&identity);
     }
     if !windows.is_empty() {
         if !identity.is_empty() {
-            out.push_str(&paint(" │", DIM, st.colour));
+            out.push_str(&paint(st.divider(), DIM, st.colour));
         }
         out.push(' ');
         out.push_str(&windows.join("  "));
@@ -387,7 +475,11 @@ pub fn render_at(
     // so only the glyph itself is a click target.
     if st.update {
         out.push(' ');
-        out.push_str(&link(&paint("↑", DIM, st.colour), RELEASES_URL, st.colour));
+        out.push_str(&link(
+            &paint(st.arrow().trim_start(), DIM, st.colour),
+            RELEASES_URL,
+            st.colour,
+        ));
     }
     Some(out)
 }
@@ -408,6 +500,7 @@ pub fn main(bar: bool) {
         bar,
         // A file read, not a network call: whatever the once-a-day check last saw.
         update: crate::fetch::update_available(),
+        ascii: use_ascii(),
     };
     if let Some(out) = render(crate::limits::read().as_ref(), session.as_ref(), st) {
         print!("{out}");
@@ -688,11 +781,54 @@ mod tests {
 
     #[test]
     fn fill_spans_the_range() {
-        assert_eq!(fill(0.0), "▁");
-        assert_eq!(fill(4.0), "▁");
-        assert_eq!(fill(50.0), "▅");
-        assert_eq!(fill(77.0), "▇");
-        assert_eq!(fill(100.0), "█");
+        assert_eq!(fill(0.0, false), "▁");
+        assert_eq!(fill(4.0, false), "▁");
+        assert_eq!(fill(50.0, false), "▅");
+        assert_eq!(fill(77.0, false), "▇");
+        assert_eq!(fill(100.0, false), "█");
+        // The ASCII ramp rises in visual density the same way.
+        assert_eq!(fill(0.0, true), ".");
+        assert_eq!(fill(77.0, true), "#");
+        assert_eq!(fill(100.0, true), "%");
+    }
+
+    /// The whole segment in ASCII: every glyph replaced, nothing outside 0x7F.
+    #[test]
+    fn ascii_mode_emits_no_byte_above_ascii() {
+        let snap = parse(FIXTURE, 1000).unwrap();
+        let s = session(
+            r#"{"model":{"display_name":"Opus 5 (1M context)"},
+                "effort":{"level":"xhigh"},
+                "context_window":{"used_percentage":37}}"#,
+        );
+        let st = Style { ascii: true, bar: true, update: true, ..Style::default() };
+        let out = render_at(Some(&snap), Some(&s), st, NOW).unwrap();
+        assert_eq!(out, "* Opus 5.X . 37% | S/4%. ~2h11  W/77%# ~3d  @F/100%% ~3d ^");
+        assert!(out.is_ascii(), "{out:?}");
+
+        // An expired window's dash is ASCII too.
+        let reset = r#"{"cachedUsageUtilization":{"fetchedAtMs":1,"utilization":{"limits":[
+            {"kind":"session","percent":78,"severity":"warning","resets_at":"2026-08-09T07:00:00Z"}
+        ]}}}"#;
+        let snap = parse(reset, 1).unwrap();
+        let out =
+            render_at(Some(&snap), None, Style { ascii: true, ..Style::default() }, NOW).unwrap();
+        assert_eq!(out, "* S/-");
+    }
+
+    /// The locale check follows POSIX precedence, and no locale at all is the C
+    /// locale — which is ASCII, not a shrug.
+    #[test]
+    fn locale_detection_prefers_lc_all_and_defaults_to_ascii() {
+        assert!(locale_is_utf8(None, None, Some("en_US.UTF-8")));
+        assert!(locale_is_utf8(None, Some("C.utf8"), None));
+        assert!(locale_is_utf8(Some("es_CO.UTF-8"), None, Some("C")));
+        // LC_ALL wins even when a lower var says UTF-8.
+        assert!(!locale_is_utf8(Some("C"), None, Some("en_US.UTF-8")));
+        assert!(!locale_is_utf8(None, None, Some("POSIX")));
+        assert!(!locale_is_utf8(None, None, None));
+        // Empty is unset, not "set to nothing".
+        assert!(locale_is_utf8(Some(""), None, Some("en_US.UTF-8")));
     }
 
     #[test]
