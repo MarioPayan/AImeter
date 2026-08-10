@@ -20,6 +20,9 @@ USAGE:
 `--bar` adds a fill block beside each percentage. Off by default: the digits
 already say what the block would, and only the digits are precise.
 
+A trailing `↑` means a newer release exists. That check runs once a day, needs
+no credentials, and re-running the install command is what applies it.
+
 `line` refreshes the limits itself, in a background child at most once a minute,
 and prints whatever is already on disk rather than waiting for the network.
 `fetch` exists so you can force that refresh, or see why it is failing.
@@ -31,9 +34,10 @@ token at all; everything still works, only the model-scoped limit ages. See
 README.md.
 
 ENVIRONMENT:
-    AIMETER_NO_FETCH       never read the token or call the endpoint
-    AIMETER_REFRESH_SECS   how stale the limits may get before a refresh (60)
-    NO_COLOR               print the segment without escape codes
+    AIMETER_NO_FETCH         no network at all: no token read, no update check
+    AIMETER_NO_UPDATE_CHECK  never ask GitHub whether there is a newer release
+    AIMETER_REFRESH_SECS     how stale the limits may get before a refresh (60)
+    NO_COLOR                 print the segment without escape codes
 ";
 
 fn main() {
@@ -45,21 +49,27 @@ fn main() {
         Some("-V") | Some("--version") | Some("version") => {
             println!("AImeter {}", env!("CARGO_PKG_VERSION"))
         }
-        Some("fetch") => match fetch::fetch_now() {
-            // Quiet on success when nobody is watching: this normally runs as a
-            // detached child with its output pointed at /dev/null.
-            Ok(_) => {
-                if let Some(s) = limits::read() {
-                    for limit in &s.limits {
-                        println!("{:<8} {:>5.0}%", limit.label, limit.percent);
+        // This process is the detached child the statusline spawns, so it is the
+        // one place a network call costs nobody anything. The update check rides
+        // along and rate-limits itself to once a day.
+        Some("fetch") => {
+            fetch::check_for_update();
+            match fetch::fetch_now() {
+                // Quiet on success when nobody is watching: this normally runs as
+                // a detached child with its output pointed at /dev/null.
+                Ok(_) => {
+                    if let Some(s) = limits::read() {
+                        for limit in &s.limits {
+                            println!("{:<8} {:>5.0}%", limit.label, limit.percent);
+                        }
                     }
                 }
+                Err(e) => {
+                    eprintln!("aimeter: {e}");
+                    std::process::exit(1);
+                }
             }
-            Err(e) => {
-                eprintln!("aimeter: {e}");
-                std::process::exit(1);
-            }
-        },
+        }
         // Bare `aimeter` prints help rather than guessing. `line` is the only thing
         // anyone runs unattended, and it is never run without being asked for.
         Some("-h") | Some("--help") | Some("help") | None => print!("{HELP}"),

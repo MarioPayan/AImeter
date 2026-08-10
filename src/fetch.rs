@@ -59,6 +59,86 @@ fn off_switch(raw: Option<&str>) -> bool {
     matches!(raw.map(str::trim), Some(v) if !v.is_empty() && v != "0")
 }
 
+/* ----------------------------------------------------------------- updates ---- */
+
+const RELEASES: &str = "https://api.github.com/repos/MarioPayan/AImeter/releases/latest";
+
+/// How often to ask whether there is a newer release.
+///
+/// Once a day. An update notice is never urgent, and GitHub gives an
+/// unauthenticated caller sixty requests an hour — not a budget a statusline
+/// should be spending.
+const UPDATE_EVERY: Duration = Duration::from_secs(24 * 60 * 60);
+
+fn update_path() -> PathBuf {
+    data_dir().join("update.check")
+}
+
+/// `AIMETER_NO_UPDATE_CHECK`, and `AIMETER_NO_FETCH` as the bigger hammer:
+/// someone who turned off one network call did not mean "except this one".
+fn update_disabled() -> bool {
+    disabled() || off_switch(std::env::var("AIMETER_NO_UPDATE_CHECK").ok().as_deref())
+}
+
+/// Ask GitHub for the newest tag, at most once a day.
+///
+/// Runs inside the detached child that already refreshes the limits, so nothing
+/// on the render path waits for it. The file is truncated *before* the attempt
+/// and only filled in on success: an unreachable network then costs one call a
+/// day rather than one a minute, and an empty file reads as "no idea", which is
+/// what it is.
+pub fn check_for_update() {
+    if update_disabled() {
+        return;
+    }
+    if age_of(&update_path()).is_some_and(|age| age < UPDATE_EVERY) {
+        return;
+    }
+    let path = update_path();
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let _ = std::fs::write(&path, b"");
+
+    let Ok(response) = ureq::get(RELEASES)
+        .set("accept", "application/vnd.github+json")
+        // GitHub rejects requests without one.
+        .set("user-agent", "aimeter")
+        .timeout(Duration::from_secs(10))
+        .call()
+    else {
+        return;
+    };
+    let Ok(body) = response.into_json::<serde_json::Value>() else { return };
+    if let Some(tag) = body.get("tag_name").and_then(|t| t.as_str()) {
+        let _ = std::fs::write(&path, tag.as_bytes());
+    }
+}
+
+/// Whether the newest tag we last heard about is ahead of what is running.
+pub fn update_available() -> bool {
+    if update_disabled() {
+        return false;
+    }
+    std::fs::read_to_string(update_path())
+        .ok()
+        .is_some_and(|tag| is_newer(&tag, env!("CARGO_PKG_VERSION")))
+}
+
+/// `v0.1.2` against `0.1.1`. Anything unparseable is "not newer" — a tag that
+/// does not look like a version must never produce a nag that cannot be cleared.
+fn is_newer(tag: &str, running: &str) -> bool {
+    fn parts(s: &str) -> Option<(u64, u64, u64)> {
+        let mut it = s.trim().trim_start_matches('v').split('.');
+        let mut next = || it.next()?.parse::<u64>().ok();
+        Some((next()?, next()?, next().unwrap_or(0)))
+    }
+    match (parts(tag), parts(running)) {
+        (Some(new), Some(now)) => new > now,
+        _ => false,
+    }
+}
+
 /// Our own directory, not a corner of `~/.claude`. What lives here is derived data
 /// we own, it will hold more than one provider's numbers eventually, and writing
 /// into another tool's config dir is a collision waiting to happen.
@@ -272,6 +352,20 @@ mod tests {
 
     /// The off switch has to be hard to set by accident and hard to unset by
     /// accident: an empty or `0` value is how shells spell "not set".
+    #[test]
+    fn a_newer_tag_is_the_only_thing_that_counts_as_newer() {
+        assert!(is_newer("v0.1.2", "0.1.1"));
+        assert!(is_newer("0.2.0", "0.1.9"));
+        assert!(is_newer("v1.0.0", "0.9.9"));
+        assert!(is_newer("v0.2", "0.1.9"), "a two-part tag still compares");
+        assert!(!is_newer("v0.1.1", "0.1.1"), "same version is not an update");
+        assert!(!is_newer("v0.1.0", "0.1.1"), "older is not an update");
+        // A tag that is not a version must never produce a nag nobody can clear.
+        assert!(!is_newer("nightly", "0.1.1"));
+        assert!(!is_newer("", "0.1.1"));
+        assert!(!is_newer("v0.1.2-rc1", "0.1.1"));
+    }
+
     #[test]
     fn the_off_switch_takes_the_usual_spellings() {
         assert!(!off_switch(None));

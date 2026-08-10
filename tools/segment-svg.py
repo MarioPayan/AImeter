@@ -19,7 +19,7 @@ TAG, MODEL, DIM = "#5f87af", "#87afaf", "#808080"
 OK, WARN, CRIT = "#5faf5f", "#d7af5f", "#d75f5f"
 LABEL, HEAD = "#9aa0aa", "#6c7280"
 
-W, H = 900, 422
+W, H = 900, 442
 SIZE = 17.0
 ADV = SIZE * 0.6           # monospace advance, forced by textLength below
 X0, BASE = 132.0, 168.0    # left edge of the segment, and its baseline
@@ -124,7 +124,8 @@ for i, (mark, lvl) in enumerate(
 # everything else a window can show
 for i, (glyph, meaning) in enumerate(
     ((["—"], "already reset"), (["?"], "over 6h old"),
-     (["no ↺"], "no reset time given"), (["▁▄█"], "--bar, if you want it"))
+     (["no ↺"], "no reset time given"), (["↑"], "a newer release exists"),
+     (["▁▄█"], "--bar, if you want it"))
 ):
     y = STRIP + 22 + i * 19
     label(600, y, glyph[0], 12.5, DIM, "start")

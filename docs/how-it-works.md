@@ -138,7 +138,8 @@ than none.
 
 | Variable | Effect |
 |---|---|
-| `AIMETER_NO_FETCH` | never read the token or call the endpoint |
+| `AIMETER_NO_FETCH` | never read the token, and make no network call at all |
+| `AIMETER_NO_UPDATE_CHECK` | never ask GitHub whether there is a newer release |
 | `AIMETER_REFRESH_SECS` | how stale the limits may get before a background refresh (60) |
 | `NO_COLOR` | print the segment without escape codes |
 | `AIMETER_BIN` | where the bundled statusline script should look for the binary |

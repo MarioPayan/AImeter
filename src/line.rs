@@ -50,6 +50,10 @@ pub struct Style {
     /// `--bar`: a fill block beside each percentage. Off by default — the digits
     /// already say what the block would, and only the digits are precise.
     pub bar: bool,
+    /// A newer release exists. One arrow, at the end, in the separator grey —
+    /// this is news, not an alarm, and it is sharing a line with numbers that
+    /// actually are.
+    pub update: bool,
 }
 
 /* ----------------------------------------------------------------- session ---- */
@@ -357,6 +361,11 @@ pub fn render_at(
     if limits.iter().any(|(_, stale)| *stale) {
         out.push_str(&paint("?", DIM, st.colour));
     }
+    // Last, after the staleness mark, so the two terse end-markers read as a pair
+    // and neither moves when the other appears.
+    if st.update {
+        out.push_str(&paint(" ↑", DIM, st.colour));
+    }
     Some(out)
 }
 
@@ -371,7 +380,12 @@ pub fn main(bar: bool) {
     // doing other work is how a statusline ends up blocking its own writer.
     let session = read_session();
     crate::fetch::refresh_in_background();
-    let st = Style { colour: use_colour(), bar };
+    let st = Style {
+        colour: use_colour(),
+        bar,
+        // A file read, not a network call: whatever the once-a-day check last saw.
+        update: crate::fetch::update_available(),
+    };
     if let Some(out) = render(crate::limits::read().as_ref(), session.as_ref(), st) {
         print!("{out}");
     }
@@ -409,7 +423,7 @@ mod tests {
         Style::default()
     }
     fn lit() -> Style {
-        Style { colour: true, bar: false }
+        Style { colour: true, ..Style::default() }
     }
     fn session(json: &str) -> Session {
         serde_json::from_str(json).expect("session parses")
@@ -595,11 +609,37 @@ mod tests {
         let plainly = render_at(Some(&snap), None, plain(), NOW).unwrap();
         assert!(!plainly.contains('▁'), "{plainly}");
 
-        let barred = Style { colour: false, bar: true };
+        let barred = Style { bar: true, ..Style::default() };
         assert_eq!(
             render_at(Some(&snap), None, barred, NOW).unwrap(),
             "◈ S/4%▁ ↺2h11  W/77%▇ ↺3d  @F/100%█ ↺3d"
         );
+    }
+
+    /// The arrow is news, not an alarm: grey, last, and after the staleness mark
+    /// so neither end-marker moves when the other appears.
+    #[test]
+    fn an_available_update_adds_one_arrow_at_the_end() {
+        let snap = parse(FIXTURE, 1000).unwrap();
+        let up = Style { update: true, ..Style::default() };
+        assert_eq!(
+            render_at(Some(&snap), None, up, NOW).unwrap(),
+            "◈ S/4% ↺2h11  W/77% ↺3d  @F/100% ↺3d ↑"
+        );
+
+        // Stale as well: the `?` keeps its place and the arrow follows it.
+        let old = parse(FIXTURE, 1000 + crate::limits::STALE_AFTER_MS + 1).unwrap();
+        assert!(render_at(Some(&old), None, up, NOW).unwrap().ends_with("? ↑"));
+
+        let coloured = Style { colour: true, update: true, ..Style::default() };
+        let out = render_at(Some(&snap), None, coloured, NOW).unwrap();
+        assert!(out.ends_with("\x1b[38;5;244m ↑\x1b[0m"), "dim, and last: {out:?}");
+    }
+
+    #[test]
+    fn no_update_means_no_arrow() {
+        let snap = parse(FIXTURE, 1000).unwrap();
+        assert!(!render_at(Some(&snap), None, plain(), NOW).unwrap().contains('↑'));
     }
 
     #[test]
