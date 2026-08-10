@@ -182,8 +182,9 @@ cargo build --release && cargo test
 cargo clippy --all-targets -- -D warnings && cargo fmt --check
 ```
 
-`segment.svg` is generated. Run `python3 tools/segment-svg.py` after changing the
-segment's shape or palette, so the diagram cannot drift from what the binary prints.
+Both images are generated. Run `python3 tools/segment-svg.py` and
+`python3 tools/console-svg.py` after changing the segment's shape or palette, so
+neither can drift from what the binary prints.
 
 Four source files, about a thousand lines: `line.rs` renders the segment, `limits.rs`
 parses whatever the API or cache hands over, `fetch.rs` talks to the endpoint, `main.rs`
