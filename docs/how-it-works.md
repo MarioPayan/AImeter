@@ -2,6 +2,53 @@
 
 The short version is in the [README](../README.md). This is everything else.
 
+## Installing by hand
+
+Take the binary for your machine from the
+[latest release](https://github.com/MarioPayan/aimeter/releases/latest), `tar -xzf` it,
+and put `aimeter` anywhere on your `PATH`:
+
+| Platform | File |
+|---|---|
+| Linux, Intel/AMD | [`aimeter-x86_64-unknown-linux-gnu.tar.gz`](https://github.com/MarioPayan/aimeter/releases/latest/download/aimeter-x86_64-unknown-linux-gnu.tar.gz) |
+| macOS, Apple silicon | [`aimeter-aarch64-apple-darwin.tar.gz`](https://github.com/MarioPayan/aimeter/releases/latest/download/aimeter-aarch64-apple-darwin.tar.gz) |
+| macOS, Intel | [`aimeter-x86_64-apple-darwin.tar.gz`](https://github.com/MarioPayan/aimeter/releases/latest/download/aimeter-x86_64-apple-darwin.tar.gz) |
+
+Anywhere else — Linux on ARM, BSD, anything without a prebuilt binary:
+
+```bash
+cargo install --git https://github.com/MarioPayan/aimeter
+```
+
+Then point a statusline script at it. `exec` matters: it passes stdin through, and that
+payload is where the model, the reasoning effort and the context window come from.
+
+```bash
+# ~/.claude/statusline.sh
+exec aimeter line
+```
+
+```json
+// ~/.claude/settings.json
+"statusLine": { "type": "command", "command": "bash ~/.claude/statusline.sh" }
+```
+
+Already have a statusline script? Append to it instead — but check whether something
+earlier in it consumes stdin, because that costs the whole left half of the segment:
+
+```bash
+printf '  %s' "$(aimeter line)"
+```
+
+### What the installer does, if you would rather it did it
+
+`install.sh` is the same steps, and it is careful with the files it touches:
+`AIMETER_DEST` chooses where the binary goes (default `~/.local/bin`); an existing
+statusline script is copied to `statusline.sh.before-aimeter` before a line is appended;
+`statusLine` in `settings.json` is only ever set when it is not already set, and every
+other key is preserved; a second run changes nothing; and `--no-wire` installs the binary
+alone and prints the snippet.
+
 ## Where the numbers come from
 
 | Source | Gives | Needs |

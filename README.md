@@ -19,15 +19,7 @@ already set. Pass `--no-wire` to skip the wiring. Short enough to
 
 > Install aimeter from github.com/MarioPayan/aimeter
 
-**Or take a binary** from the [latest release](https://github.com/MarioPayan/aimeter/releases/latest):
-
-| Platform | File |
-|---|---|
-| Linux, Intel/AMD | [`x86_64-unknown-linux-gnu`](https://github.com/MarioPayan/aimeter/releases/latest/download/aimeter-x86_64-unknown-linux-gnu.tar.gz) |
-| macOS, Apple silicon | [`aarch64-apple-darwin`](https://github.com/MarioPayan/aimeter/releases/latest/download/aimeter-aarch64-apple-darwin.tar.gz) |
-| macOS, Intel | [`x86_64-apple-darwin`](https://github.com/MarioPayan/aimeter/releases/latest/download/aimeter-x86_64-apple-darwin.tar.gz) |
-
-Anywhere else: `cargo install --git https://github.com/MarioPayan/aimeter`.
+Prefer to do it yourself? [Installing by hand](docs/how-it-works.md#installing-by-hand).
 
 ## Why
 
