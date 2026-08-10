@@ -20,8 +20,12 @@ jobs:
       # take, because "four tarballs, no guidance" is not a download page.
       - env:
           GH_TOKEN: ${{ github.token }}
+        # --draft, published by the last job: `releases/latest` ignores drafts, so
+        # installs keep serving the previous complete release instead of hitting a
+        # minute-long window where the new one exists with no assets — a window the
+        # CDN then negative-caches into failed installs for anyone who raced it.
         run: |
-          gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes '
+          gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "$GITHUB_REF_NAME" --notes '
           Your Claude Code rate limits, in the statusline. Grab the binary for your
           machine, `tar -xzf` it, and put `aimeter` on your `PATH`. Every tarball
           has a `.sha256` beside it.
@@ -72,3 +76,12 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" "aimeter-${{ matrix.target }}.tar.gz" "aimeter-${{ matrix.target }}.tar.gz.sha256" --clobber
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false
