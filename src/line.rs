@@ -242,6 +242,27 @@ fn paint(text: &str, code: &str, on: bool) -> String {
     }
 }
 
+/// Where the update arrow points.
+const RELEASES_URL: &str = "https://github.com/MarioPayan/AImeter/releases/latest";
+
+/// Wrap text in an OSC 8 hyperlink, so the arrow can be clicked.
+///
+/// Claude Code passes these through to terminals it detects as supporting them.
+/// Everywhere else — Terminal.app, anything older — the sequence is ignored and
+/// the text shows exactly as it would have, which is why the arrow has to mean
+/// something on its own rather than being a bare "click here".
+///
+/// BEL-terminated rather than ST, because that is the form with the widest
+/// support and the one Claude Code's own examples use. Gated on the same switch
+/// as colour: `NO_COLOR` is this segment's one "emit no escape sequences" knob.
+fn link(text: &str, url: &str, on: bool) -> String {
+    if on {
+        format!("\x1b]8;;{url}\x07{text}\x1b]8;;\x07")
+    } else {
+        text.to_string()
+    }
+}
+
 /// `▁▂▃▄▅▆▇█` across 0–100%, for `--bar`.
 fn fill(percent: f64) -> &'static str {
     const LEVELS: [&str; 8] = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
@@ -362,9 +383,11 @@ pub fn render_at(
         out.push_str(&paint("?", DIM, st.colour));
     }
     // Last, after the staleness mark, so the two terse end-markers read as a pair
-    // and neither moves when the other appears.
+    // and neither moves when the other appears. The space stays outside the link,
+    // so only the glyph itself is a click target.
     if st.update {
-        out.push_str(&paint(" ↑", DIM, st.colour));
+        out.push(' ');
+        out.push_str(&link(&paint("↑", DIM, st.colour), RELEASES_URL, st.colour));
     }
     Some(out)
 }
@@ -633,7 +656,28 @@ mod tests {
 
         let coloured = Style { colour: true, update: true, ..Style::default() };
         let out = render_at(Some(&snap), None, coloured, NOW).unwrap();
-        assert!(out.ends_with("\x1b[38;5;244m ↑\x1b[0m"), "dim, and last: {out:?}");
+        // Dim, last, and an OSC 8 hyperlink around the glyph alone — the leading
+        // space stays outside so only the arrow is a click target.
+        assert!(
+            out.ends_with(concat!(
+                " \x1b]8;;https://github.com/MarioPayan/AImeter/releases/latest\x07",
+                "\x1b[38;5;244m↑\x1b[0m",
+                "\x1b]8;;\x07"
+            )),
+            "{out:?}"
+        );
+    }
+
+    /// A terminal without hyperlink support shows the text and ignores the rest,
+    /// so the arrow has to carry its meaning without the link. With NO_COLOR there
+    /// is no escape sequence at all.
+    #[test]
+    fn the_arrow_still_reads_without_escapes() {
+        let snap = parse(FIXTURE, 1000).unwrap();
+        let out =
+            render_at(Some(&snap), None, Style { update: true, ..Style::default() }, NOW).unwrap();
+        assert!(out.ends_with(" ↑"), "{out:?}");
+        assert!(!out.contains('\x1b'), "no escapes at all: {out:?}");
     }
 
     #[test]

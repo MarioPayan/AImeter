@@ -144,6 +144,13 @@ than none.
 | `NO_COLOR` | print the segment without escape codes |
 | `AIMETER_BIN` | where the bundled statusline script should look for the binary |
 
+A trailing `↑` means a newer release exists. The check runs at most once a day, needs
+no credentials, and the arrow is an [OSC 8](https://en.wikipedia.org/wiki/ANSI_escape_code#OSC)
+hyperlink to the releases page — Cmd-click on macOS, Ctrl-click elsewhere. Terminals
+without hyperlink support simply show the arrow, which is why it has to mean something
+on its own. Terminal.app is one of those; Windows Terminal may need `FORCE_HYPERLINK=1`
+set before launching Claude Code.
+
 `aimeter line --bar` adds a fill block beside each percentage. Off by default: the digits
 already say what the block would, and only the digits are precise.
 
