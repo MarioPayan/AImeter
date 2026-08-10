@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The aimeter statusline segment.
+# The AImeter statusline segment.
 #
 # Deliberately does almost nothing: find the binary, run it, and get out of the
 # way. Everything that could be slow or could fail lives in `aimeter line`, which

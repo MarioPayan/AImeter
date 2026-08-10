@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Install aimeter and wire it into your Claude Code statusline.
+# Install AImeter and wire it into your Claude Code statusline.
 #
 # Nothing here overwrites anything. An existing statusline script is backed up
 # before a line is appended to it, an existing statusLine setting is left exactly
@@ -10,7 +10,7 @@
 
 set -eu
 
-REPO="MarioPayan/aimeter"
+REPO="MarioPayan/AImeter"
 DEST="${AIMETER_DEST:-$HOME/.local/bin}"
 CLAUDE_DIR="$HOME/.claude"
 SL="$CLAUDE_DIR/statusline.sh"
@@ -84,13 +84,13 @@ exec "$DEST/aimeter" line
 EOF
   chmod +x "$SL"
   echo "aimeter: wrote $SL"
-elif grep -q 'aimeter' "$SL" 2>/dev/null; then
+elif grep -qi 'aimeter' "$SL" 2>/dev/null; then
   echo "aimeter: $SL already runs aimeter — left alone"
 else
   cp "$SL" "$SL.before-aimeter"
   {
     echo ""
-    echo "# aimeter — appended by its installer"
+    echo "# AImeter — appended by its installer"
     echo "$snippet"
   } >> "$SL"
   echo "aimeter: appended to $SL (backup: $SL.before-aimeter)"

@@ -1,23 +1,23 @@
-# How aimeter works
+# How AImeter works
 
 The short version is in the [README](../README.md). This is everything else.
 
 ## Installing by hand
 
 Take the binary for your machine from the
-[latest release](https://github.com/MarioPayan/aimeter/releases/latest), `tar -xzf` it,
+[latest release](https://github.com/MarioPayan/AImeter/releases/latest), `tar -xzf` it,
 and put `aimeter` anywhere on your `PATH`:
 
 | Platform | File |
 |---|---|
-| Linux, Intel/AMD | [`aimeter-x86_64-unknown-linux-gnu.tar.gz`](https://github.com/MarioPayan/aimeter/releases/latest/download/aimeter-x86_64-unknown-linux-gnu.tar.gz) |
-| macOS, Apple silicon | [`aimeter-aarch64-apple-darwin.tar.gz`](https://github.com/MarioPayan/aimeter/releases/latest/download/aimeter-aarch64-apple-darwin.tar.gz) |
-| macOS, Intel | [`aimeter-x86_64-apple-darwin.tar.gz`](https://github.com/MarioPayan/aimeter/releases/latest/download/aimeter-x86_64-apple-darwin.tar.gz) |
+| Linux, Intel/AMD | [`aimeter-x86_64-unknown-linux-gnu.tar.gz`](https://github.com/MarioPayan/AImeter/releases/latest/download/aimeter-x86_64-unknown-linux-gnu.tar.gz) |
+| macOS, Apple silicon | [`aimeter-aarch64-apple-darwin.tar.gz`](https://github.com/MarioPayan/AImeter/releases/latest/download/aimeter-aarch64-apple-darwin.tar.gz) |
+| macOS, Intel | [`aimeter-x86_64-apple-darwin.tar.gz`](https://github.com/MarioPayan/AImeter/releases/latest/download/aimeter-x86_64-apple-darwin.tar.gz) |
 
 Anywhere else — Linux on ARM, BSD, anything without a prebuilt binary:
 
 ```bash
-cargo install --git https://github.com/MarioPayan/aimeter
+cargo install --git https://github.com/MarioPayan/AImeter
 ```
 
 Then point a statusline script at it. `exec` matters: it passes stdin through, and that
@@ -74,7 +74,7 @@ exists only in the other two.
 > as a bearer token to an endpoint Anthropic publishes for its own client, not for third
 > parties. It works today and may stop without notice.
 >
-> The token is **read, never written.** aimeter does not refresh it, does not touch the
+> The token is **read, never written.** AImeter does not refresh it, does not touch the
 > credentials file, never logs it, and never stores it. On a 401 it falls back to the
 > cache and lets Claude Code sort its own token out — refreshing it here could invalidate
 > the one your editor is using. Only the `limits[]` array from the response is written to
@@ -157,7 +157,7 @@ into the plugin system. `install.sh` does that composing for you.
 
 - **Cost in dollars.** Zero on a Max subscription, and marginal cost is zero besides.
 - **A daemon, a watcher, a database.** One process, gone two milliseconds later.
-- **Token history.** aimeter tallied every transcript under `~/.claude/projects` into a
+- **Token history.** AImeter tallied every transcript under `~/.claude/projects` into a
   rollup for a while, to drive a TUI. The TUI went and the tally went with it rather than
   living on as a second product inside a repo that does one thing. Both are in the git
   history, along with the four rules that made the tally agree with Claude Code's own

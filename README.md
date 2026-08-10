@@ -1,4 +1,4 @@
-# aimeter
+# AImeter
 
 Your Claude Code rate limits, in the statusline. One binary, ~2 ms, no daemon.
 
@@ -7,7 +7,7 @@ Your Claude Code rate limits, in the statusline. One binary, ~2 ms, no daemon.
 ## Get it
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/MarioPayan/aimeter/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/MarioPayan/AImeter/main/install.sh | sh
 ```
 
 Downloads the right binary, wires your statusline, and is safe to run twice — it backs up
@@ -17,7 +17,7 @@ already set. Pass `--no-wire` to skip the wiring. Short enough to
 
 **Or ask Claude Code:**
 
-> Install aimeter from github.com/MarioPayan/aimeter
+> Install AImeter from github.com/MarioPayan/AImeter
 
 Prefer to do it yourself? [Installing by hand](docs/how-it-works.md#installing-by-hand).
 

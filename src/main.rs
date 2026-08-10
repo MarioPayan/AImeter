@@ -1,4 +1,4 @@
-//! aimeter — Claude Code usage as a statusline segment.
+//! AImeter — Claude Code usage as a statusline segment.
 //!
 //! One job: print where you stand against your limits, fast enough to run on every
 //! statusline render. Three sources feed it — the payload Claude Code pipes in, the
@@ -10,7 +10,7 @@ mod limits;
 mod line;
 
 const HELP: &str = "\
-aimeter — Claude Code usage, as a statusline segment
+AImeter — Claude Code usage, as a statusline segment
 
 USAGE:
     aimeter line [--bar]   one statusline segment, then exit
@@ -43,7 +43,7 @@ fn main() {
         // that is the moment to reach for one — not before.
         Some("line") => line::main(args.iter().any(|a| a == "--bar")),
         Some("-V") | Some("--version") | Some("version") => {
-            println!("aimeter {}", env!("CARGO_PKG_VERSION"))
+            println!("AImeter {}", env!("CARGO_PKG_VERSION"))
         }
         Some("fetch") => match fetch::fetch_now() {
             // Quiet on success when nobody is watching: this normally runs as a

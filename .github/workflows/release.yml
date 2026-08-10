@@ -34,11 +34,11 @@ jobs:
           Or let the installer pick:
 
           ```
-          curl -fsSL https://raw.githubusercontent.com/MarioPayan/aimeter/main/install.sh | sh
+          curl -fsSL https://raw.githubusercontent.com/MarioPayan/AImeter/main/install.sh | sh
           ```
 
           Setup and what every part of the segment means:
-          https://github.com/MarioPayan/aimeter#readme
+          https://github.com/MarioPayan/AImeter#readme
           '
 
   build:

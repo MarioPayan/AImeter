@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate segment.svg — one annotated diagram of the aimeter statusline segment.
+"""Generate segment.svg — one annotated diagram of the AImeter statusline segment.
 
 Two rules shape it. Direct fill= attributes rather than a <style> block, because
 GitHub serves README SVGs through its image proxy into an <img> and inline
@@ -77,7 +77,7 @@ out.insert(0, f'<rect x="0" y="0" width="{W}" height="{H}" rx="7" fill="{BG}"/>'
 out.insert(1, f'<rect x="0.5" y="0.5" width="{W-1}" height="{H-1}" rx="7" fill="none" stroke="{EDGE}"/>')
 
 # ── what this line is ────────────────────────────────────────────────────────
-label(28, 40, "aimeter — your Claude Code limits, in the statusline", 12.5, HEAD, "start")
+label(28, 40, "AImeter — your Claude Code limits, in the statusline", 12.5, HEAD, "start")
 out.append(f'<line x1="28" y1="52" x2="{W-28}" y2="52" stroke="{EDGE}"/>')
 
 # ── callouts above ───────────────────────────────────────────────────────────
@@ -132,7 +132,7 @@ for i, (glyph, meaning) in enumerate(
 
 svg = (
     f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" '
-    f'role="img" aria-label="The aimeter statusline segment, annotated: the model, its '
+    f'role="img" aria-label="The AImeter statusline segment, annotated: the model, its '
     f'reasoning effort and how full the context window is, then the 5-hour, weekly and '
     f'model-scoped limits with how much is spent and when each resets.">'
     + "".join(out) + "</svg>\n"

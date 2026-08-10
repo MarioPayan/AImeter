@@ -1,12 +1,12 @@
 # Notes for Claude
 
-## If someone asked you to install aimeter
+## If someone asked you to install AImeter
 
 Run this. It downloads the right prebuilt binary, wires the statusline, and is safe to
 run twice:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/MarioPayan/aimeter/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/MarioPayan/AImeter/main/install.sh | sh
 ```
 
 Then tell them to start a new Claude Code session to see it.
@@ -21,9 +21,9 @@ What that script does, so you can say so if asked:
 
 Pass `--no-wire` to install the binary alone and print the snippet instead. If there is
 no prebuilt binary for their platform — anything that is not Linux x86_64 or macOS —
-fall back to `cargo install --git https://github.com/MarioPayan/aimeter`.
+fall back to `cargo install --git https://github.com/MarioPayan/AImeter`.
 
-**Tell them this before they run it:** aimeter reads the OAuth token in
+**Tell them this before they run it:** AImeter reads the OAuth token in
 `~/.claude/.credentials.json` to call an endpoint Anthropic does not document. It never
 writes that file and never stores the token, and `AIMETER_NO_FETCH=1` disables it
 entirely at the cost of the model-scoped limit being less current. Details in
