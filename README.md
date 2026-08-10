@@ -4,6 +4,10 @@ Your Claude Code rate limits, in the statusline. One binary, ~2 ms, no daemon.
 
 ![A terminal session with the AImeter segment along the bottom](console.svg)
 
+## What you are looking at
+
+![The segment annotated: model, reasoning effort and context window on the left; the 5-hour, weekly and model-scoped limits with how much is spent and when each resets on the right](segment.svg)
+
 ## Get it
 
 ```bash
@@ -30,9 +34,5 @@ Prefer to do it yourself? [Installing by hand](docs/how-it-works.md#installing-b
 | **Four ceilings** | Session, week, capped model, context — the limits say when they reset |
 | **Never lies** | Stale goes grey, a reset window shows `—`, a missing reset stays blank |
 | **Nothing running** | No daemon, no database. ~2 ms per render; `node` costs 60–100 |
-
-## What you are looking at
-
-![The segment annotated: model, reasoning effort and context window on the left; the 5-hour, weekly and model-scoped limits with how much is spent and when each resets on the right](segment.svg)
 
 **[How it works](docs/how-it-works.md)**
