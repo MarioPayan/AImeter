@@ -149,6 +149,7 @@ fn data_dir() -> PathBuf {
         .join("aimeter")
 }
 
+/// Our copy of the utilization response, in the shape `limits::parse` reads.
 pub fn cache_path() -> PathBuf {
     data_dir().join("usage.json")
 }

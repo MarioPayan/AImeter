@@ -44,11 +44,15 @@ shellcheck statusline/aimeter-statusline.sh install.sh
 
 Two things are easy to break by accident:
 
-- **`segment.svg` is generated.** Change the segment's shape or palette and you must run
-  `python3 tools/segment-svg.py`, or the diagram in the README starts lying.
+- **The README images are generated** into `docs/images/`. Change the segment's shape or
+  palette and you must run `python3 tools/segment-svg.py` and
+  `python3 tools/console-svg.py`, or they start describing a segment that no longer
+  exists. Nothing checks this for you.
 - **Tests pin the clock.** The segment prints live countdowns, so `render_at` takes a
   `now` and every test passes `NOW`. Asserting against the real clock races the minute
   boundary and fails a few times an hour.
+
+`docs/how-it-works.md` has the full layout and the reasoning behind every number.
 
 The segment's rules, in case a change looks like an improvement and is not: colour means
 one thing only — which window needs you — so punctuation is never coloured by severity;

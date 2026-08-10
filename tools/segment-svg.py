@@ -11,7 +11,7 @@ actually point at the thing they label.
 import pathlib
 from xml.sax.saxutils import escape
 
-OUT = pathlib.Path(__file__).resolve().parent.parent / "segment.svg"
+OUT = pathlib.Path(__file__).resolve().parent.parent / "docs" / "images" / "segment.svg"
 
 MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace"
 BG, EDGE, HAIR = "#17181c", "#2a2c33", "#3a3d46"

@@ -175,17 +175,39 @@ into the plugin system. `install.sh` does that composing for you.
 
 ## Working on it
 
-Rust is pinned in `.tool-versions`. CI runs these four on Linux and macOS.
+Rust is pinned in `.tool-versions`. CI runs these on Linux and macOS, plus
+`shellcheck` on both shell scripts.
 
 ```bash
 cargo build --release && cargo test
 cargo clippy --all-targets -- -D warnings && cargo fmt --check
 ```
 
-Both images are generated. Run `python3 tools/segment-svg.py` and
-`python3 tools/console-svg.py` after changing the segment's shape or palette, so
-neither can drift from what the binary prints.
+### Layout
 
-Four source files, about a thousand lines: `line.rs` renders the segment, `limits.rs`
-parses whatever the API or cache hands over, `fetch.rs` talks to the endpoint, `main.rs`
-is the two commands.
+```
+src/                     the binary, about a thousand lines
+  main.rs                two commands, and the help text
+  line.rs                renders the segment — every layout decision lives here
+  limits.rs              parses whatever the API or the cache hands over
+  fetch.rs               the usage endpoint, the update check, the data directory
+install.sh               downloads a binary and wires the statusline
+statusline/              a wrapper for composing the segment by hand, with binary discovery
+tools/                   generate the two README images; not part of the build
+docs/
+  how-it-works.md        this file
+  images/                segment.svg and console.svg, both generated
+CLAUDE.md                install steps for agents, and the traps in this repo
+.github/workflows/       ci.yml on every push, release.yml on a v* tag
+```
+
+### Two things drift silently if you are not careful
+
+**The images are generated.** Run `python3 tools/segment-svg.py` and
+`python3 tools/console-svg.py` after changing the segment's shape or palette, or the
+README starts describing a segment the binary no longer prints. Nothing checks this
+for you.
+
+**The tests pin the clock.** The segment prints live countdowns, so `render_at` takes a
+`now` and every test passes the same `NOW` constant. Asserting against the real clock
+races the minute boundary and fails a few times an hour.

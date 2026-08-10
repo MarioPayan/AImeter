@@ -9,7 +9,7 @@ token in the real xterm-256 colours the binary emits.
 import pathlib
 from xml.sax.saxutils import escape
 
-OUT = pathlib.Path(__file__).resolve().parent.parent / "console.svg"
+OUT = pathlib.Path(__file__).resolve().parent.parent / "docs" / "images" / "console.svg"
 
 MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace"
 BG, CHROME, EDGE, RULE = "#17181c", "#1e2027", "#2a2c33", "#262931"

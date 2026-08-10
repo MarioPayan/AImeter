@@ -31,6 +31,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// throw away the severity colours, which are the only reason to look at it.
 pub const STALE_AFTER_MS: i64 = 6 * 60 * 60 * 1000;
 
+/// How alarmed to be about one window. Sent by the API for the limits it knows
+/// about, and derived from the percentage only for the two numbers that arrive
+/// without an opinion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
     Normal,
@@ -99,6 +102,8 @@ pub struct Snapshot {
 }
 
 impl Snapshot {
+    /// Old enough that the shortest window has certainly rolled over, so the
+    /// numbers are wrong rather than merely behind.
     pub fn is_stale(&self) -> bool {
         self.age_ms.map(|age| age > STALE_AFTER_MS).unwrap_or(true)
     }
@@ -154,10 +159,13 @@ struct ScopeModel {
 
 /* ------------------------------------------------------------------ read ---- */
 
+/// Claude Code's own cache of the same object, refreshed on its own schedule.
 pub fn claude_json_path() -> PathBuf {
     home().join(".claude.json")
 }
 
+/// `$HOME`, falling back to the working directory rather than panicking — this
+/// runs inside a statusline, where a panic is worse than a missing segment.
 pub fn home() -> PathBuf {
     std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."))
 }
