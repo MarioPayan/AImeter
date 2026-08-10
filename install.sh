@@ -20,7 +20,7 @@ WIRE=1
 for arg in "$@"; do
   case "$arg" in
     --no-wire) WIRE=0 ;;
-    -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "aimeter: unknown option $arg" >&2; exit 2 ;;
   esac
 done
