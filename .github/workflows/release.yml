@@ -1,8 +1,8 @@
 name: release
 
 # Prebuilt binaries so nobody has to install Rust to use a statusline segment.
-# Tag a version and this attaches one tarball per platform to the release that
-# `install.sh` downloads from.
+# Tag a version and this attaches one tarball per platform, each with a .sha256
+# beside it that `install.sh` verifies before unpacking.
 on:
   push:
     tags: ["v*"]
@@ -17,21 +17,23 @@ jobs:
       - uses: actions/checkout@v5
       # --verify-tag so a mistyped tag fails here rather than producing an empty
       # release that install.sh would then 404 against. The notes say which file to
-      # take, because "three tarballs, no guidance" is not a download page.
+      # take, because "four tarballs, no guidance" is not a download page.
       - env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --notes '
           Your Claude Code rate limits, in the statusline. Grab the binary for your
-          machine, `tar -xzf` it, and put `aimeter` on your `PATH`.
+          machine, `tar -xzf` it, and put `aimeter` on your `PATH`. Every tarball
+          has a `.sha256` beside it.
 
           | Platform | File |
           |---|---|
           | Linux, Intel/AMD | `aimeter-x86_64-unknown-linux-gnu.tar.gz` |
+          | Linux, ARM | `aimeter-aarch64-unknown-linux-gnu.tar.gz` |
           | macOS, Apple silicon | `aimeter-aarch64-apple-darwin.tar.gz` |
           | macOS, Intel | `aimeter-x86_64-apple-darwin.tar.gz` |
 
-          Or let the installer pick:
+          Or let the installer pick and verify:
 
           ```
           curl -fsSL https://raw.githubusercontent.com/MarioPayan/AImeter/main/install.sh | sh
@@ -49,6 +51,9 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+          # A native ARM runner, so no cross toolchain to maintain.
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
           - os: macos-latest
             target: aarch64-apple-darwin
           - os: macos-latest
@@ -61,6 +66,9 @@ jobs:
       - run: rustup target add ${{ matrix.target }}
       - run: cargo build --release --target ${{ matrix.target }}
       - run: tar -czf "aimeter-${{ matrix.target }}.tar.gz" -C "target/${{ matrix.target }}/release" aimeter
+      # shasum is present on both the Linux and macOS runners; sha256sum is not on
+      # macOS. One tool, both platforms, same output shape.
+      - run: shasum -a 256 "aimeter-${{ matrix.target }}.tar.gz" > "aimeter-${{ matrix.target }}.tar.gz.sha256"
       - env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" "aimeter-${{ matrix.target }}.tar.gz" --clobber
+        run: gh release upload "$GITHUB_REF_NAME" "aimeter-${{ matrix.target }}.tar.gz" "aimeter-${{ matrix.target }}.tar.gz.sha256" --clobber

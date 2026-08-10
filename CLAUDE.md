@@ -19,9 +19,10 @@ What that script does, so you can say so if asked:
 - sets `statusLine` in `~/.claude/settings.json` **only if it is not already set**
 - changes nothing on a second run
 
-Pass `--no-wire` to install the binary alone and print the snippet instead. If there is
-no prebuilt binary for their platform — anything that is not Linux x86_64 or macOS —
-fall back to `cargo install --git https://github.com/MarioPayan/AImeter`.
+Pass `--no-wire` to install the binary alone and print the snippet instead. Prebuilt
+binaries cover Linux (x86_64 and ARM) and macOS (both architectures), each verified
+against a published sha256 before unpacking; anywhere else, fall back to
+`cargo install --git https://github.com/MarioPayan/AImeter`.
 
 **Tell them this before they run it:** AImeter reads the OAuth token in
 `~/.claude/.credentials.json` to call an endpoint Anthropic does not document. It never
@@ -39,7 +40,7 @@ Before committing:
 
 ```bash
 cargo test && cargo clippy --all-targets -- -D warnings && cargo fmt --check
-shellcheck statusline/aimeter-statusline.sh install.sh
+shellcheck install.sh
 ```
 
 Two things are easy to break by accident:

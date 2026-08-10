@@ -30,6 +30,7 @@ os=$(uname -s)
 arch=$(uname -m)
 case "$os-$arch" in
   Linux-x86_64) target="x86_64-unknown-linux-gnu" ;;
+  Linux-aarch64 | Linux-arm64) target="aarch64-unknown-linux-gnu" ;;
   Darwin-arm64) target="aarch64-apple-darwin" ;;
   Darwin-x86_64) target="x86_64-apple-darwin" ;;
   *)
@@ -42,11 +43,35 @@ esac
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
+base="https://github.com/$REPO/releases/latest/download/aimeter-$target.tar.gz"
 echo "aimeter: fetching $target"
-if ! curl -fsSL "https://github.com/$REPO/releases/latest/download/aimeter-$target.tar.gz" \
-     -o "$tmp/aimeter.tar.gz"; then
+if ! curl -fsSL "$base" -o "$tmp/aimeter.tar.gz"; then
   echo "aimeter: download failed." >&2
   echo "Build it instead:  cargo install --git https://github.com/$REPO" >&2
+  exit 1
+fi
+
+# Verify against the published checksum before unpacking anything. A mismatch is
+# a hard stop — a truncated download and a tampered one look the same from here.
+# A machine with no sha256 tool at all skips with a warning: refusing to install
+# because the *user* lacks shasum would punish them for our caution.
+if ! curl -fsSL "$base.sha256" -o "$tmp/expected.sha256"; then
+  echo "aimeter: the release has no published checksum — refusing to continue." >&2
+  exit 1
+fi
+expected=$(cut -d' ' -f1 < "$tmp/expected.sha256")
+if command -v sha256sum >/dev/null 2>&1; then
+  actual=$(sha256sum "$tmp/aimeter.tar.gz" | cut -d' ' -f1)
+elif command -v shasum >/dev/null 2>&1; then
+  actual=$(shasum -a 256 "$tmp/aimeter.tar.gz" | cut -d' ' -f1)
+else
+  actual=""
+  echo "aimeter: no sha256sum or shasum on this machine — skipping checksum verification." >&2
+fi
+if [ -n "$actual" ] && [ "$actual" != "$expected" ]; then
+  echo "aimeter: checksum mismatch — the download is corrupt or not what was published." >&2
+  echo "         expected $expected" >&2
+  echo "         got      $actual" >&2
   exit 1
 fi
 

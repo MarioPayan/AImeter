@@ -11,10 +11,14 @@ and put `aimeter` anywhere on your `PATH`:
 | Platform | File |
 |---|---|
 | Linux, Intel/AMD | [`aimeter-x86_64-unknown-linux-gnu.tar.gz`](https://github.com/MarioPayan/AImeter/releases/latest/download/aimeter-x86_64-unknown-linux-gnu.tar.gz) |
+| Linux, ARM | [`aimeter-aarch64-unknown-linux-gnu.tar.gz`](https://github.com/MarioPayan/AImeter/releases/latest/download/aimeter-aarch64-unknown-linux-gnu.tar.gz) |
 | macOS, Apple silicon | [`aimeter-aarch64-apple-darwin.tar.gz`](https://github.com/MarioPayan/AImeter/releases/latest/download/aimeter-aarch64-apple-darwin.tar.gz) |
 | macOS, Intel | [`aimeter-x86_64-apple-darwin.tar.gz`](https://github.com/MarioPayan/AImeter/releases/latest/download/aimeter-x86_64-apple-darwin.tar.gz) |
 
-Anywhere else — Linux on ARM, BSD, anything without a prebuilt binary:
+Every tarball has a `.sha256` beside it, and `install.sh` refuses to unpack a download
+that does not match it.
+
+Anywhere else — BSD, anything without a prebuilt binary:
 
 ```bash
 cargo install --git https://github.com/MarioPayan/AImeter
@@ -142,7 +146,6 @@ than none.
 | `AIMETER_NO_UPDATE_CHECK` | never ask GitHub whether there is a newer release |
 | `AIMETER_REFRESH_SECS` | how stale the limits may get before a background refresh (60) |
 | `NO_COLOR` | print the segment without escape codes |
-| `AIMETER_BIN` | where the bundled statusline script should look for the binary |
 
 A trailing `↑` means a newer release exists. The check runs at most once a day, needs
 no credentials, and the arrow is an [OSC 8](https://en.wikipedia.org/wiki/ANSI_escape_code#OSC)
@@ -176,7 +179,7 @@ into the plugin system. `install.sh` does that composing for you.
 ## Working on it
 
 Rust is pinned in `.tool-versions`. CI runs these on Linux and macOS, plus
-`shellcheck` on both shell scripts.
+`shellcheck` on `install.sh`.
 
 ```bash
 cargo build --release && cargo test
@@ -191,8 +194,7 @@ src/                     the binary, about a thousand lines
   line.rs                renders the segment — every layout decision lives here
   limits.rs              parses whatever the API or the cache hands over
   fetch.rs               the usage endpoint, the update check, the data directory
-install.sh               downloads a binary and wires the statusline
-statusline/              a wrapper for composing the segment by hand, with binary discovery
+install.sh               downloads a binary, verifies its checksum, wires the statusline
 tools/                   generate the two README images; not part of the build
 docs/
   how-it-works.md        this file

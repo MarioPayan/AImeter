@@ -27,4 +27,4 @@ jobs:
       # Preinstalled on the Linux runner only, and one lint of one script is the
       # same on both platforms anyway.
       - if: runner.os == 'Linux'
-        run: shellcheck statusline/aimeter-statusline.sh install.sh
+        run: shellcheck install.sh
