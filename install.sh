@@ -142,4 +142,13 @@ case ":$PATH:" in
   *) echo "aimeter: note — $DEST is not on your PATH (the statusline uses the full path, so it works anyway)" ;;
 esac
 
+cat <<EOF
+
+The model-scoped limit comes from an endpoint Anthropic does not document, which
+means reading the OAuth token in ~/.claude/.credentials.json. It is never written,
+logged or stored, and AIMETER_NO_FETCH=1 turns it off — the rest still works.
+https://github.com/$REPO/blob/main/docs/how-it-works.md
+
+EOF
+
 echo "aimeter: done. Open a new Claude Code session to see it."

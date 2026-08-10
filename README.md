@@ -4,16 +4,6 @@ Your Claude Code rate limits, in the statusline. One binary, ~2 ms, no daemon.
 
 ![The segment annotated: model, reasoning effort and context window on the left; the 5-hour, weekly and model-scoped limits with how much is spent and when each resets on the right](segment.svg)
 
-## Why
-
-| | |
-|---|---|
-| **Already on screen** | You never ask. Asking Claude costs a round trip and some context |
-| **Spends nothing** | No model call, no tokens, no context — it reads files and prints a line |
-| **Four ceilings** | Session, week, capped model, context — the limits say when they reset |
-| **Never lies** | Stale goes grey, a reset window shows `—`, a missing reset stays blank |
-| **Nothing running** | No daemon, no database. ~2 ms per render; `node` costs 60–100 |
-
 ## Get it
 
 ```bash
@@ -39,11 +29,14 @@ already set. Pass `--no-wire` to skip the wiring. Short enough to
 
 Anywhere else: `cargo install --git https://github.com/MarioPayan/aimeter`.
 
----
+## Why
 
-The model-scoped limit needs one network call, which means reading the OAuth token Claude
-Code already stores. It is never written or stored, and `AIMETER_NO_FETCH=1` turns it off
-— **[how it works](docs/how-it-works.md)** covers that, where every number comes from,
-and what the segment refuses to do.
+| | |
+|---|---|
+| **Already on screen** | You never ask. Asking Claude costs a round trip and some context |
+| **Spends nothing** | No model call, no tokens, no context — it reads files and prints a line |
+| **Four ceilings** | Session, week, capped model, context — the limits say when they reset |
+| **Never lies** | Stale goes grey, a reset window shows `—`, a missing reset stays blank |
+| **Nothing running** | No daemon, no database. ~2 ms per render; `node` costs 60–100 |
 
-MIT.
+**[How it works](docs/how-it-works.md)**
