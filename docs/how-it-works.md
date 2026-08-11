@@ -138,6 +138,10 @@ Reasoning effort is one letter: `L` `M` `H` `X`, and `MAX` spelled out because `
 already took `M`. A level it does not recognise prints nothing; a wrong letter is worse
 than none.
 
+`U` is mapped for `ultracode` and never prints: Claude Code resolves that rung to `xhigh`
+before it builds the statusline payload, so an ultracode session shows `X`, which is the
+effort it actually asks for. The mark is there for the day the payload names it.
+
 ## Environment
 
 | Variable | Effect |

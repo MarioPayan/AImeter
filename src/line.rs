@@ -212,6 +212,11 @@ impl Session {
     ///
     /// `max` spells itself out rather than taking `M`, which `medium` already has.
     /// An unrecognised level prints nothing — a wrong letter is worse than none.
+    ///
+    /// `U` is the one letter here nothing prints today: `ultracode` is a real rung of
+    /// the ladder — choosing it clears whatever else was set — but Claude Code resolves
+    /// it to `xhigh` before it builds the payload, so the level never arrives under its
+    /// own name. The arm costs a line and is right the day that changes.
     fn effort_mark(&self) -> Option<&'static str> {
         match self.effort.as_ref()?.level.as_str() {
             "low" => Some("L"),
@@ -219,6 +224,7 @@ impl Session {
             "high" => Some("H"),
             "xhigh" => Some("X"),
             "max" => Some("MAX"),
+            "ultracode" => Some("U"),
             _ => None,
         }
     }
@@ -580,6 +586,7 @@ mod tests {
         assert_eq!(marks("high"), Some("H"));
         assert_eq!(marks("xhigh"), Some("X"));
         assert_eq!(marks("max"), Some("MAX"));
+        assert_eq!(marks("ultracode"), Some("U"));
         assert_eq!(marks("telepathic"), None);
         assert_eq!(Session::default().effort_mark(), None);
     }
