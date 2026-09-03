@@ -19,11 +19,18 @@ an existing statusline script before appending, and never overrides a `statusLin
 already set. Pass `--no-wire` to skip the wiring. Short enough to
 [read first](install.sh), which you should do with anything you pipe into a shell.
 
+On Windows, in PowerShell — [the same script](install.ps1), the same rules:
+
+```powershell
+irm https://raw.githubusercontent.com/MarioPayan/AImeter/main/install.ps1 | iex
+```
+
 **Or ask Claude Code:**
 
 > Install AImeter from github.com/MarioPayan/AImeter
 
 Prefer to do it yourself? [Installing by hand](docs/how-it-works.md#installing-by-hand).
+Have Rust? `cargo install aimeter`.
 
 ## Why
 

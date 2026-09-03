@@ -166,8 +166,17 @@ pub fn claude_json_path() -> PathBuf {
 
 /// `$HOME`, falling back to the working directory rather than panicking — this
 /// runs inside a statusline, where a panic is worse than a missing segment.
+///
+/// Windows asks for `%USERPROFILE%` first, because that is what Claude Code itself
+/// resolves `~` to there. A `HOME` set by a shell like Git Bash can point somewhere
+/// else, and reading a different `.claude` than the tool we are reporting on is a
+/// worse failure than printing nothing.
 pub fn home() -> PathBuf {
-    std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."))
+    #[cfg(windows)]
+    let first = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME"));
+    #[cfg(not(windows))]
+    let first = std::env::var_os("HOME");
+    first.map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."))
 }
 
 fn now_ms() -> i64 {
@@ -182,6 +191,14 @@ fn now_ms() -> i64 {
 /// needs no flag to say which one is in play.
 pub fn read() -> Option<Snapshot> {
     let ours = crate::fetch::read_cached();
+    // `~/.claude.json` is a whole session store — 200 KB and growing — and parsing
+    // it is the largest single cost of a render that budgets single-digit
+    // milliseconds. When our own copy is younger than the refresh interval, theirs
+    // cannot be fresh enough to win by an amount anyone could see, so it is not
+    // worth opening.
+    if ours.as_ref().is_some_and(is_current) {
+        return ours;
+    }
     let theirs = read_from(&claude_json_path());
     match (ours, theirs) {
         (Some(a), Some(b)) => {
@@ -189,6 +206,15 @@ pub fn read() -> Option<Snapshot> {
         }
         (a, b) => a.or(b),
     }
+}
+
+/// Young enough that the other copy cannot beat it by a margin worth reading a
+/// 200 KB file for: our own refresh runs on this same interval, so anything inside
+/// it is as current as this tool ever gets.
+fn is_current(snapshot: &Snapshot) -> bool {
+    snapshot
+        .age_ms
+        .is_some_and(|age| (0..crate::fetch::refresh_after().as_millis() as i64).contains(&age))
 }
 
 /// Read and flatten one file. `None` when it is missing, unreadable, not JSON, or
@@ -331,6 +357,20 @@ mod tests {
         assert_eq!(snap.limits.len(), 2);
         assert_eq!(snap.limits[0].severity, Severity::Normal);
         assert_eq!(snap.limits[1].percent, 80.0);
+    }
+
+    /// The short circuit that keeps a 200 KB file out of the render path. The
+    /// boundary is read from `refresh_after` rather than spelled `60_000`, so an
+    /// exported `AIMETER_REFRESH_SECS` moves the assertion instead of failing it.
+    #[test]
+    fn only_a_copy_younger_than_the_refresh_interval_skips_the_other_file() {
+        let aged = |age_ms| Snapshot { limits: vec![], age_ms };
+        let interval = crate::fetch::refresh_after().as_millis() as i64;
+        assert!(is_current(&aged(Some(0))));
+        assert!(is_current(&aged(Some(interval - 1))));
+        assert!(!is_current(&aged(Some(interval))), "due for a refresh is not current");
+        assert!(!is_current(&aged(None)), "no fetch time is no claim to freshness");
+        assert!(!is_current(&aged(Some(-1))), "a copy from the future is a broken clock");
     }
 
     #[test]

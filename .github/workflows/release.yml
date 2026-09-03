@@ -36,11 +36,18 @@ jobs:
           | Linux, ARM | `aimeter-aarch64-unknown-linux-gnu.tar.gz` |
           | macOS, Apple silicon | `aimeter-aarch64-apple-darwin.tar.gz` |
           | macOS, Intel | `aimeter-x86_64-apple-darwin.tar.gz` |
+          | Windows | `aimeter-x86_64-pc-windows-msvc.tar.gz` |
 
           Or let the installer pick and verify:
 
           ```
           curl -fsSL https://raw.githubusercontent.com/MarioPayan/AImeter/main/install.sh | sh
+          ```
+
+          On Windows, in PowerShell:
+
+          ```
+          irm https://raw.githubusercontent.com/MarioPayan/AImeter/main/install.ps1 | iex
           ```
 
           Setup and what every part of the segment means:
@@ -49,19 +56,34 @@ jobs:
 
   build:
     needs: create
+    defaults:
+      run:
+        # Windows runners default to pwsh, where `$GITHUB_REF_NAME` is an empty
+        # local variable rather than an environment lookup. One shell everywhere,
+        # so these stay one set of steps rather than two.
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            bin: aimeter
           # A native ARM runner, so no cross toolchain to maintain.
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
+            bin: aimeter
           - os: macos-latest
             target: aarch64-apple-darwin
+            bin: aimeter
           - os: macos-latest
             target: x86_64-apple-darwin
+            bin: aimeter
+          # A tarball rather than a zip, because Windows has shipped `tar` since
+          # 2018 and one archive format is one code path in both installers.
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: aimeter.exe
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -69,10 +91,17 @@ jobs:
       - run: rustup default 1.89.0
       - run: rustup target add ${{ matrix.target }}
       - run: cargo build --release --target ${{ matrix.target }}
-      - run: tar -czf "aimeter-${{ matrix.target }}.tar.gz" -C "target/${{ matrix.target }}/release" aimeter
-      # shasum is present on both the Linux and macOS runners; sha256sum is not on
-      # macOS. One tool, both platforms, same output shape.
-      - run: shasum -a 256 "aimeter-${{ matrix.target }}.tar.gz" > "aimeter-${{ matrix.target }}.tar.gz.sha256"
+      - run: tar -czf "aimeter-${{ matrix.target }}.tar.gz" -C "target/${{ matrix.target }}/release" "${{ matrix.bin }}"
+      # shasum is on the Linux and macOS runners, sha256sum is not on macOS, and
+      # Git Bash on Windows may have either. Both print the hash in column one,
+      # which is all install.sh and install.ps1 read.
+      - run: |
+          f="aimeter-${{ matrix.target }}.tar.gz"
+          if command -v shasum >/dev/null 2>&1; then
+            shasum -a 256 "$f" > "$f.sha256"
+          else
+            sha256sum "$f" > "$f.sha256"
+          fi
       - env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" "aimeter-${{ matrix.target }}.tar.gz" "aimeter-${{ matrix.target }}.tar.gz.sha256" --clobber
@@ -85,3 +114,57 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
         run: gh release edit "$GITHUB_REF_NAME" --draft=false
+
+  # The installers are the files with the widest blast radius and, until here, the
+  # least testing: shellcheck lints one, a parser check reads the other, nothing
+  # ran either. This installs the release that was just published, the way a
+  # stranger would, into a throwaway home directory.
+  #
+  # After `publish` rather than before, because `releases/latest` is the URL the
+  # installers download and a draft is not latest. So a failure here means a bad
+  # release is already public — which is exactly the moment you want to be told.
+  smoke:
+    needs: publish
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      # No credentials on a runner, and none needed: this is about the install
+      # path, not the endpoint.
+      AIMETER_NO_FETCH: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -eu
+          fake=$(mktemp -d)
+          HOME="$fake" sh install.sh
+          "$fake/.local/bin/aimeter" --version
+          grep -q aimeter "$fake/.claude/statusline.sh"
+          grep -q statusLine "$fake/.claude/settings.json"
+          # A machine with no ~/.claude.json at all still has to print a segment,
+          # because the stdin payload alone is enough for the left-hand side.
+          out=$(printf '%s' '{"model":{"display_name":"Opus 5"},"context_window":{"used_percentage":37}}' \
+            | HOME="$fake" "$fake/.local/bin/aimeter" line)
+          echo "segment: $out"
+          test -n "$out"
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $fake = Join-Path $env:RUNNER_TEMP "fake-home"
+          New-Item -ItemType Directory -Force -Path $fake > $null
+          # `home()` reads USERPROFILE first on Windows, and so does install.ps1.
+          $env:USERPROFILE = $fake
+          ./install.ps1
+          $exe = Join-Path $fake ".local\bin\aimeter.exe"
+          & $exe --version
+          if (-not (Select-String -Path (Join-Path $fake ".claude\settings.json") `
+                                  -Pattern 'statusLine' -Quiet)) {
+            throw "install.ps1 did not set statusLine"
+          }
+          $out = '{"model":{"display_name":"Opus 5"},"context_window":{"used_percentage":37}}' | & $exe line
+          Write-Host "segment: $out"
+          if (-not $out) { throw "the segment printed nothing" }

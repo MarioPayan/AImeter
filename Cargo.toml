@@ -1,8 +1,18 @@
 [package]
 name = "aimeter"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
 description = "AI coding-tool usage as a statusline segment. Claude Code today; the name is the room to add others."
+# Enough for crates.io to serve `cargo install aimeter`, which is the fallback the
+# README already points at for platforms with no prebuilt binary. No `exclude`:
+# every tracked file here fits in a rounding error, and a stale exclude list that
+# drops the README's own images is a worse outcome than shipping 20 KB of SVG.
+license = "MIT"
+repository = "https://github.com/MarioPayan/AImeter"
+readme = "README.md"
+keywords = ["claude", "statusline", "usage", "rate-limit", "cli"]
+categories = ["command-line-utilities"]
+rust-version = "1.89"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

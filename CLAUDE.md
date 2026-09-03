@@ -19,10 +19,13 @@ What that script does, so you can say so if asked:
 - sets `statusLine` in `~/.claude/settings.json` **only if it is not already set**
 - changes nothing on a second run
 
-Pass `--no-wire` to install the binary alone and print the snippet instead. Prebuilt
-binaries cover Linux (x86_64 and ARM) and macOS (both architectures), each verified
-against a published sha256 before unpacking; anywhere else, fall back to
-`cargo install --git https://github.com/MarioPayan/AImeter`.
+On Windows that command is `irm https://raw.githubusercontent.com/MarioPayan/AImeter/main/install.ps1 | iex`,
+which wires `statusLine` straight to the binary instead of writing a wrapper script.
+
+Pass `--no-wire` (`-NoWire` on Windows) to install the binary alone and print the snippet
+instead. Prebuilt binaries cover Linux (x86_64 and ARM), macOS (both architectures) and
+Windows (x86_64), each verified against a published sha256 before unpacking; anywhere
+else, fall back to `cargo install aimeter`.
 
 **Tell them this before they run it:** AImeter reads the OAuth token in
 `~/.claude/.credentials.json` to call an endpoint Anthropic does not document. It never
@@ -48,7 +51,7 @@ Two things are easy to break by accident:
 - **The README images are generated** into `docs/images/`. Change the segment's shape or
   palette and you must run `python3 tools/segment-svg.py` and
   `python3 tools/console-svg.py`, or they start describing a segment that no longer
-  exists. Nothing checks this for you.
+  exists. CI regenerates and diffs them, so forgetting fails the build.
 - **Tests pin the clock.** The segment prints live countdowns, so `render_at` takes a
   `now` and every test passes `NOW`. Asserting against the real clock races the minute
   boundary and fails a few times an hour.

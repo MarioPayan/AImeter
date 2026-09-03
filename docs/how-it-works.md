@@ -14,6 +14,7 @@ and put `aimeter` anywhere on your `PATH`:
 | Linux, ARM | [`aimeter-aarch64-unknown-linux-gnu.tar.gz`](https://github.com/MarioPayan/AImeter/releases/latest/download/aimeter-aarch64-unknown-linux-gnu.tar.gz) |
 | macOS, Apple silicon | [`aimeter-aarch64-apple-darwin.tar.gz`](https://github.com/MarioPayan/AImeter/releases/latest/download/aimeter-aarch64-apple-darwin.tar.gz) |
 | macOS, Intel | [`aimeter-x86_64-apple-darwin.tar.gz`](https://github.com/MarioPayan/AImeter/releases/latest/download/aimeter-x86_64-apple-darwin.tar.gz) |
+| Windows | [`aimeter-x86_64-pc-windows-msvc.tar.gz`](https://github.com/MarioPayan/AImeter/releases/latest/download/aimeter-x86_64-pc-windows-msvc.tar.gz) |
 
 Every tarball has a `.sha256` beside it, and `install.sh` refuses to unpack a download
 that does not match it.
@@ -21,8 +22,11 @@ that does not match it.
 Anywhere else — BSD, anything without a prebuilt binary:
 
 ```bash
-cargo install --git https://github.com/MarioPayan/AImeter
+cargo install aimeter
 ```
+
+That is the released version. `cargo install --git https://github.com/MarioPayan/AImeter`
+builds whatever is on `main` instead.
 
 Then point a statusline script at it. `exec` matters: it passes stdin through, and that
 payload is where the model, the reasoning effort and the context window come from.
@@ -52,6 +56,27 @@ statusline script is copied to `statusline.sh.before-aimeter` before a line is a
 `statusLine` in `settings.json` is only ever set when it is not already set, and every
 other key is preserved; a second run changes nothing; and `--no-wire` installs the binary
 alone and prints the snippet.
+
+### Windows
+
+```powershell
+irm https://raw.githubusercontent.com/MarioPayan/AImeter/main/install.ps1 | iex
+```
+
+Same rules, and one difference: there is no wrapper script. `statusLine` points straight
+at the binary, quoted so a path with a space in it survives the shell that runs it —
+
+```json
+// %USERPROFILE%\.claude\settings.json
+"statusLine": { "type": "command", "command": "\"C:\\Users\\you\\.local\\bin\\aimeter.exe\" line" }
+```
+
+`%USERPROFILE%` is home, and it is asked for before `HOME`: a shell like Git Bash can set
+`HOME` somewhere else, and reading a different `.claude` than Claude Code's own would be a
+worse failure than printing nothing. The cache goes in `%LOCALAPPDATA%\aimeter`.
+`-NoWire` is the switch that prints the snippet instead of writing it — piping into `iex`
+cannot pass arguments, so that one needs the file saved first. WSL is Linux as far as any
+of this is concerned; use `install.sh` there.
 
 ## Where the numbers come from
 
@@ -190,8 +215,10 @@ into the plugin system. `install.sh` does that composing for you.
 
 ## Working on it
 
-Rust is pinned in `.tool-versions`. CI runs these on Linux and macOS, plus
-`shellcheck` on `install.sh`.
+Rust is pinned in `.tool-versions`. CI runs these on Linux, macOS and Windows, plus
+`shellcheck` on `install.sh`, a parser check on `install.ps1`, and a regeneration of the
+README images that fails if they have drifted. A tagged release additionally installs
+itself from the assets it just published, on all three platforms.
 
 ```bash
 cargo build --release && cargo test
@@ -207,6 +234,7 @@ src/                     the binary, about a thousand lines
   limits.rs              parses whatever the API or the cache hands over
   fetch.rs               the usage endpoint, the update check, the data directory
 install.sh               downloads a binary, verifies its checksum, wires the statusline
+install.ps1              the same, for Windows, where statusLine points at the exe
 tools/                   generate the two README images; not part of the build
 docs/
   how-it-works.md        this file
@@ -215,12 +243,12 @@ CLAUDE.md                install steps for agents, and the traps in this repo
 .github/workflows/       ci.yml on every push, release.yml on a v* tag
 ```
 
-### Two things drift silently if you are not careful
+### Two things to know before you change the segment
 
 **The images are generated.** Run `python3 tools/segment-svg.py` and
 `python3 tools/console-svg.py` after changing the segment's shape or palette, or the
-README starts describing a segment the binary no longer prints. Nothing checks this
-for you.
+README starts describing a segment the binary no longer prints. CI reruns both and
+diffs `docs/images`, so a forgotten regeneration fails the build rather than shipping.
 
 **The tests pin the clock.** The segment prints live countdowns, so `render_at` takes a
 `now` and every test passes the same `NOW` constant. Asserting against the real clock
