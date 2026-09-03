@@ -6,12 +6,12 @@ on:
 
 jobs:
   check:
-    # Both, because the statusline hook and the detached-fetch child are the two
-    # things most likely to break on the platform nobody develops on.
+    # All three, because the statusline hook and the detached-fetch child are the
+    # two things most likely to break on a platform nobody develops on.
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -28,3 +28,21 @@ jobs:
       # same on both platforms anyway.
       - if: runner.os == 'Linux'
         run: shellcheck install.sh
+      # The README images are drawn by these scripts, from numbers that live beside
+      # the code that draws the real segment. Change the shape or the palette
+      # without rerunning them and they quietly describe a segment that no longer
+      # exists — the one drift in this repo with no other way to notice it.
+      - if: runner.os == 'Linux'
+        run: |
+          python3 tools/segment-svg.py
+          python3 tools/console-svg.py
+          git diff --exit-code docs/images
+      # shellcheck's counterpart for the Windows installer. Nobody here runs
+      # PowerShell, so CI is the only thing that will notice a typo in it.
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path install.ps1), [ref]$null, [ref]$errors) > $null
+          if ($errors) { $errors | ForEach-Object { $_.ToString() }; exit 1 }

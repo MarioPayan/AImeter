@@ -53,10 +53,13 @@ fn main() {
         }
         // This process is the detached child the statusline spawns, so it is the
         // one place a network call costs nobody anything. The update check rides
-        // along and rate-limits itself to once a day.
+        // along and rate-limits itself to once a day — after the limits, because
+        // refreshing them is why this child exists and GitHub is allowed ten
+        // seconds to answer.
         Some("fetch") => {
+            let fetched = fetch::fetch_now();
             fetch::check_for_update();
-            match fetch::fetch_now() {
+            match fetched {
                 // Quiet on success when nobody is watching: this normally runs as
                 // a detached child with its output pointed at /dev/null.
                 Ok(_) => {

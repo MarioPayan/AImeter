@@ -142,8 +142,13 @@ fn is_newer(tag: &str, running: &str) -> bool {
 /// Our own directory, not a corner of `~/.claude`. What lives here is derived data
 /// we own, it will hold more than one provider's numbers eventually, and writing
 /// into another tool's config dir is a collision waiting to happen.
+///
+/// `%LOCALAPPDATA%` is where Windows puts exactly this kind of file. It is read
+/// unconditionally rather than behind a `cfg`: nothing else sets that variable, and
+/// a machine that does set it has said where it wants the cache.
 fn data_dir() -> PathBuf {
     std::env::var_os("XDG_DATA_HOME")
+        .or_else(|| std::env::var_os("LOCALAPPDATA"))
         .map(PathBuf::from)
         .unwrap_or_else(|| crate::limits::home().join(".local").join("share"))
         .join("aimeter")
