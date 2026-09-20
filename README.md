@@ -47,14 +47,14 @@ Have Rust? `cargo install aimeter`.
 ## With Codex
 
 ```
-◈ Opus 5·X · 37% │ S/4% ↺2h11  W/41% ↺3d  @F/12% · cx W/33% ↺15h
+◈ Opus 5·X · 37% │ S/4% ↺2h11  W/41% ↺3d  @F/12% · cx W/33% ↺14h52
 ```
 
 If [Codex](https://github.com/openai/codex) is on the machine, its ChatGPT-plan limits
-follow Claude's behind a `cx`, read the same way: `W/33% ↺15h` is a third of the week
-spent, fifteen hours until it resets. They stay current while Codex is closed, because
-the number comes from the endpoint Codex's own `/status` uses, with Codex's session log
-as the fallback.
+follow Claude's behind a `cx`, read the same way: `W/33% ↺14h52` is a third of the week
+spent, just under fifteen hours until it resets. They stay current while Codex is
+closed, because the number comes from the endpoint Codex's own `/status` uses, with
+Codex's session log as the fallback.
 
 **No Codex, no `cx`.** Without a `~/.codex` directory none of this runs — nothing is
 read, nothing is requested, and the segment is exactly the one in the pictures above.

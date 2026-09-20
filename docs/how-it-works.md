@@ -208,7 +208,7 @@ model's initial is the 7-day window scoped to that model. The `@` is what distin
 the scoped window — not the letter — so a Sonnet-scoped `@S` can never be read as the
 session's `S`.
 
-`cx` opens the Codex group, and everything after it is Codex's: `cx S/12% ↺2h  W/33% ↺6d`.
+`cx` opens the Codex group, and everything after it is Codex's: `cx S/12% ↺2h04  W/33% ↺6d`.
 The letters keep their meaning — five hours, seven days — and the tag says whose they
 are. It is grey for the same reason the slash is: whose window it is is not a severity.
 
