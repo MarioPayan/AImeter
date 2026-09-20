@@ -29,6 +29,9 @@
 //! so it wins on the numbers it carries — the 5-hour and 7-day windows and nothing
 //! else. The model-scoped limit only exists in the other two.
 //!
+//! Where Codex is installed its windows follow, behind a `cx` — `· cx W/33% ↺6d` —
+//! from `codex.rs`, which ranks its own two sources before anything reaches here.
+//!
 //! Severity normally comes from the API's own field rather than thresholds invented
 //! here — Anthropic knows when 78% is a warning better than we do. The exceptions are
 //! stdin's rate limits and the context window, which send a percentage and no opinion,
@@ -418,14 +421,20 @@ fn window(limit: &Limit, stale: bool, st: Style, now: i64) -> String {
 }
 
 /// The whole segment, or `None` when there is nothing honest to say.
-pub fn render(snapshot: Option<&Snapshot>, session: Option<&Session>, st: Style) -> Option<String> {
-    render_at(snapshot, session, st, chrono::Utc::now().timestamp())
+pub fn render(
+    snapshot: Option<&Snapshot>,
+    codex: Option<&Snapshot>,
+    session: Option<&Session>,
+    st: Style,
+) -> Option<String> {
+    render_at(snapshot, codex, session, st, chrono::Utc::now().timestamp())
 }
 
 /// Split out so tests can pin the clock. Countdowns are printed now, so asserting
 /// against `now()` would race the minute boundary and fail a few times an hour.
 pub fn render_at(
     snapshot: Option<&Snapshot>,
+    codex: Option<&Snapshot>,
     session: Option<&Session>,
     st: Style,
     now: i64,
@@ -450,7 +459,19 @@ pub fn render_at(
         identity.push_str(&paint(&format!("{}%", pct.round() as i64), lit, st.colour));
     }
 
-    if limits.is_empty() && identity.is_empty() {
+    // Codex, after Claude's windows and behind a `cx`. A window that has already
+    // reset is dropped here rather than dashed. Claude's `—` sits beside a tool that
+    // is running and about to say something newer; Codex may not be opened again for
+    // a fortnight, and a permanent `cx W/—` would be a fixture that reports nothing.
+    let codex_stale = codex.is_some_and(|c| c.is_stale());
+    let codex: Vec<String> = codex
+        .iter()
+        .flat_map(|c| &c.limits)
+        .filter(|l| !l.expired_at(now))
+        .map(|l| window(l, codex_stale, st, now))
+        .collect();
+
+    if limits.is_empty() && identity.is_empty() && codex.is_empty() {
         return None;
     }
 
@@ -462,18 +483,25 @@ pub fn render_at(
         out.push(' ');
         out.push_str(&identity);
     }
-    if !windows.is_empty() {
+    if !windows.is_empty() || !codex.is_empty() {
         if !identity.is_empty() {
             out.push_str(&paint(st.divider(), DIM, st.colour));
         }
         out.push(' ');
         out.push_str(&windows.join("  "));
+        if !codex.is_empty() {
+            // The tag is punctuation, so it is grey: whose windows these are is not
+            // a severity, and colour here says only which window needs you.
+            let tag = if windows.is_empty() { "cx ".into() } else { format!(" {} cx ", st.dot()) };
+            out.push_str(&paint(&tag, DIM, st.colour));
+            out.push_str(&codex.join("  "));
+        }
     }
     // A trailing "?" is the only marker of staleness that survives a colourless
     // terminal, so it is not merely decoration. One stale number among fresh ones
     // still earns it: the mark says "something here is old", and the greyed-out
     // window says which.
-    if limits.iter().any(|(_, stale)| *stale) {
+    if limits.iter().any(|(_, stale)| *stale) || (codex_stale && !codex.is_empty()) {
         out.push_str(&paint("?", DIM, st.colour));
     }
     // Last, after the staleness mark, so the two terse end-markers read as a pair
@@ -508,7 +536,9 @@ pub fn main(bar: bool) {
         update: crate::fetch::update_available(),
         ascii: use_ascii(),
     };
-    if let Some(out) = render(crate::limits::read().as_ref(), session.as_ref(), st) {
+    let codex = crate::codex::read();
+    if let Some(out) = render(crate::limits::read().as_ref(), codex.as_ref(), session.as_ref(), st)
+    {
         print!("{out}");
     }
 }
@@ -555,7 +585,7 @@ mod tests {
     fn renders_three_windows_with_their_countdowns() {
         let snap = parse(FIXTURE, 1000).unwrap();
         assert_eq!(
-            render_at(Some(&snap), None, plain(), NOW).unwrap(),
+            render_at(Some(&snap), None, None, plain(), NOW).unwrap(),
             "◈ S/4% ↺2h11  W/77% ↺3d  @F/100% ↺3d"
         );
     }
@@ -570,7 +600,7 @@ mod tests {
                 "context_window":{"used_percentage":37}}"#,
         );
         assert_eq!(
-            render_at(Some(&snap), Some(&s), plain(), NOW).unwrap(),
+            render_at(Some(&snap), None, Some(&s), plain(), NOW).unwrap(),
             "◈ Opus 5·X · 37% │ S/4% ↺2h11  W/77% ↺3d  @F/100% ↺3d"
         );
     }
@@ -597,13 +627,13 @@ mod tests {
         let full = session(
             r#"{"model":{"display_name":"Opus 5"},"context_window":{"used_percentage":96}}"#,
         );
-        let out = render_at(None, Some(&full), lit(), NOW).unwrap();
+        let out = render_at(None, None, Some(&full), lit(), NOW).unwrap();
         assert!(out.contains("\x1b[38;5;167m96%"), "nearly full is red: {out:?}");
 
         let roomy = session(
             r#"{"model":{"display_name":"Opus 5"},"context_window":{"used_percentage":23}}"#,
         );
-        let out = render_at(None, Some(&roomy), lit(), NOW).unwrap();
+        let out = render_at(None, None, Some(&roomy), lit(), NOW).unwrap();
         assert!(out.contains("\x1b[38;5;71m23%"), "roomy is green: {out:?}");
     }
 
@@ -617,7 +647,7 @@ mod tests {
              "scope":{"model":{"display_name":"Sonnet"}}}
         ]}}}"#;
         let snap = parse(raw, 1).unwrap();
-        assert_eq!(render_at(Some(&snap), None, plain(), NOW).unwrap(), "◈ S/4%  @S/50%");
+        assert_eq!(render_at(Some(&snap), None, None, plain(), NOW).unwrap(), "◈ S/4%  @S/50%");
     }
 
     /// stdin is regenerated every render, so its numbers win — but it knows nothing
@@ -631,7 +661,7 @@ mod tests {
                                "seven_day":{"used_percentage":0,"resets_at":1786284000}}}"#,
         );
         assert_eq!(
-            render_at(Some(&snap), Some(&s), plain(), NOW).unwrap(),
+            render_at(Some(&snap), None, Some(&s), plain(), NOW).unwrap(),
             "◈ Opus 5 │ S/2% ↺2h00  W/0% ↺2h00  @F/100% ↺3d"
         );
     }
@@ -644,14 +674,14 @@ mod tests {
             {"kind":"weekly_all","percent":77,"severity":"warning","resets_at":"2026-08-12T12:00:00Z"}
         ]}}}"#;
         let old = parse(superseded, 1000 + crate::limits::STALE_AFTER_MS + 1).unwrap();
-        assert!(render_at(Some(&old), None, plain(), NOW).unwrap().ends_with('?'));
+        assert!(render_at(Some(&old), None, None, plain(), NOW).unwrap().ends_with('?'));
 
         let s = session(
             r#"{"rate_limits":{"five_hour":{"used_percentage":2,"resets_at":1786284000},
                                "seven_day":{"used_percentage":9,"resets_at":1786284000}}}"#,
         );
         assert_eq!(
-            render_at(Some(&old), Some(&s), plain(), NOW).unwrap(),
+            render_at(Some(&old), None, Some(&s), plain(), NOW).unwrap(),
             "◈ S/2% ↺2h00  W/9% ↺2h00"
         );
     }
@@ -665,10 +695,10 @@ mod tests {
             r#"{"rate_limits":{"five_hour":{"used_percentage":2,"resets_at":1786284000},
                                "seven_day":{"used_percentage":9,"resets_at":1786284000}}}"#,
         );
-        let out = render_at(Some(&old), Some(&s), plain(), NOW).unwrap();
+        let out = render_at(Some(&old), None, Some(&s), plain(), NOW).unwrap();
         assert!(out.ends_with('?'), "the scoped window is still stale: {out}");
 
-        let coloured = render_at(Some(&old), Some(&s), lit(), NOW).unwrap();
+        let coloured = render_at(Some(&old), None, Some(&s), lit(), NOW).unwrap();
         assert!(coloured.contains("\x1b[38;5;244m@F"), "stale scoped window is grey: {coloured:?}");
         assert!(!coloured.contains("\x1b[38;5;167m"), "never red on stale data: {coloured:?}");
         assert!(coloured.contains("\x1b[38;5;71mS"), "fresh windows keep their colour");
@@ -682,7 +712,7 @@ mod tests {
         let s = session(
             r#"{"model":{"display_name":"Opus 5"},"context_window":{"used_percentage":37}}"#,
         );
-        let out = render_at(Some(&snap), Some(&s), lit(), NOW).unwrap();
+        let out = render_at(Some(&snap), None, Some(&s), lit(), NOW).unwrap();
         // The warning window: label and number amber, slash and clock grey.
         assert!(
             out.contains("\x1b[38;5;179mW\x1b[0m\x1b[38;5;244m/\x1b[0m\x1b[38;5;179m77%"),
@@ -700,7 +730,7 @@ mod tests {
             {"kind":"weekly_all","percent":50,"severity":"warning","resets_at":"2026-08-12T12:00:00Z"}
         ]}}}"#;
         let snap = parse(raw, 1).unwrap();
-        assert_eq!(render_at(Some(&snap), None, plain(), NOW).unwrap(), "◈ S/—  W/50% ↺3d");
+        assert_eq!(render_at(Some(&snap), None, None, plain(), NOW).unwrap(), "◈ S/—  W/50% ↺3d");
     }
 
     /// `resets_at` comes back null on the scoped window in the wild. No clock, no
@@ -713,7 +743,10 @@ mod tests {
              "scope":{"model":{"display_name":"Fable"}}}
         ]}}}"#;
         let snap = parse(raw, 1).unwrap();
-        assert_eq!(render_at(Some(&snap), None, plain(), NOW).unwrap(), "◈ S/10% ↺1h23  @F/0%");
+        assert_eq!(
+            render_at(Some(&snap), None, None, plain(), NOW).unwrap(),
+            "◈ S/10% ↺1h23  @F/0%"
+        );
     }
 
     #[test]
@@ -729,12 +762,12 @@ mod tests {
     #[test]
     fn the_bar_is_off_unless_asked_for() {
         let snap = parse(FIXTURE, 1000).unwrap();
-        let plainly = render_at(Some(&snap), None, plain(), NOW).unwrap();
+        let plainly = render_at(Some(&snap), None, None, plain(), NOW).unwrap();
         assert!(!plainly.contains('▁'), "{plainly}");
 
         let barred = Style { bar: true, ..Style::default() };
         assert_eq!(
-            render_at(Some(&snap), None, barred, NOW).unwrap(),
+            render_at(Some(&snap), None, None, barred, NOW).unwrap(),
             "◈ S/4%▁ ↺2h11  W/77%▇ ↺3d  @F/100%█ ↺3d"
         );
     }
@@ -746,16 +779,16 @@ mod tests {
         let snap = parse(FIXTURE, 1000).unwrap();
         let up = Style { update: true, ..Style::default() };
         assert_eq!(
-            render_at(Some(&snap), None, up, NOW).unwrap(),
+            render_at(Some(&snap), None, None, up, NOW).unwrap(),
             "◈ S/4% ↺2h11  W/77% ↺3d  @F/100% ↺3d ↑"
         );
 
         // Stale as well: the `?` keeps its place and the arrow follows it.
         let old = parse(FIXTURE, 1000 + crate::limits::STALE_AFTER_MS + 1).unwrap();
-        assert!(render_at(Some(&old), None, up, NOW).unwrap().ends_with("? ↑"));
+        assert!(render_at(Some(&old), None, None, up, NOW).unwrap().ends_with("? ↑"));
 
         let coloured = Style { colour: true, update: true, ..Style::default() };
-        let out = render_at(Some(&snap), None, coloured, NOW).unwrap();
+        let out = render_at(Some(&snap), None, None, coloured, NOW).unwrap();
         // Dim, last, and an OSC 8 hyperlink around the glyph alone — the leading
         // space stays outside so only the arrow is a click target.
         assert!(
@@ -775,7 +808,8 @@ mod tests {
     fn the_arrow_still_reads_without_escapes() {
         let snap = parse(FIXTURE, 1000).unwrap();
         let out =
-            render_at(Some(&snap), None, Style { update: true, ..Style::default() }, NOW).unwrap();
+            render_at(Some(&snap), None, None, Style { update: true, ..Style::default() }, NOW)
+                .unwrap();
         assert!(out.ends_with(" ↑"), "{out:?}");
         assert!(!out.contains('\x1b'), "no escapes at all: {out:?}");
     }
@@ -783,7 +817,7 @@ mod tests {
     #[test]
     fn no_update_means_no_arrow() {
         let snap = parse(FIXTURE, 1000).unwrap();
-        assert!(!render_at(Some(&snap), None, plain(), NOW).unwrap().contains('↑'));
+        assert!(!render_at(Some(&snap), None, None, plain(), NOW).unwrap().contains('↑'));
     }
 
     #[test]
@@ -809,7 +843,7 @@ mod tests {
                 "context_window":{"used_percentage":37}}"#,
         );
         let st = Style { ascii: true, bar: true, update: true, ..Style::default() };
-        let out = render_at(Some(&snap), Some(&s), st, NOW).unwrap();
+        let out = render_at(Some(&snap), None, Some(&s), st, NOW).unwrap();
         assert_eq!(out, "* Opus 5.X . 37% | S/4%. ~2h11  W/77%# ~3d  @F/100%% ~3d ^");
         assert!(out.is_ascii(), "{out:?}");
 
@@ -819,7 +853,8 @@ mod tests {
         ]}}}"#;
         let snap = parse(reset, 1).unwrap();
         let out =
-            render_at(Some(&snap), None, Style { ascii: true, ..Style::default() }, NOW).unwrap();
+            render_at(Some(&snap), None, None, Style { ascii: true, ..Style::default() }, NOW)
+                .unwrap();
         assert_eq!(out, "* S/-");
     }
 
@@ -840,8 +875,77 @@ mod tests {
 
     #[test]
     fn nothing_at_all_prints_nothing() {
-        assert!(render_at(None, None, plain(), NOW).is_none());
-        assert!(render_at(None, Some(&Session::default()), plain(), NOW).is_none());
+        assert!(render_at(None, None, None, plain(), NOW).is_none());
+        assert!(render_at(None, None, Some(&Session::default()), plain(), NOW).is_none());
+    }
+
+    /// A Codex reading taken `age_ms` ago: 33% of a week that resets at `resets_at`.
+    fn codex(age_ms: i64, resets_at: &str) -> Snapshot {
+        Snapshot {
+            limits: vec![Limit {
+                label: "W".into(),
+                percent: 33.0,
+                severity: Severity::Normal,
+                resets_at: Some(resets_at.into()),
+            }],
+            age_ms: Some(age_ms),
+        }
+    }
+    const IN_3D: &str = "2026-08-12T12:00:00Z";
+
+    #[test]
+    fn codex_follows_the_claude_windows_behind_its_own_tag() {
+        let snap = parse(FIXTURE, 1000).unwrap();
+        let cx = codex(0, IN_3D);
+        assert_eq!(
+            render_at(Some(&snap), Some(&cx), None, plain(), NOW).unwrap(),
+            "◈ S/4% ↺2h11  W/77% ↺3d  @F/100% ↺3d · cx W/33% ↺3d"
+        );
+        // With no Claude windows there is nothing to be separated from.
+        let s = session(r#"{"model":{"display_name":"Opus 5"}}"#);
+        assert_eq!(
+            render_at(None, Some(&cx), Some(&s), plain(), NOW).unwrap(),
+            "◈ Opus 5 │ cx W/33% ↺3d"
+        );
+        assert_eq!(render_at(None, Some(&cx), None, plain(), NOW).unwrap(), "◈ cx W/33% ↺3d");
+
+        let ascii = Style { ascii: true, ..Style::default() };
+        let out = render_at(Some(&snap), Some(&cx), None, ascii, NOW).unwrap();
+        assert_eq!(out, "* S/4% ~2h11  W/77% ~3d  @F/100% ~3d . cx W/33% ~3d");
+    }
+
+    /// Whose windows these are is not a severity, so the tag never takes a colour.
+    #[test]
+    fn the_codex_tag_is_punctuation() {
+        let snap = parse(FIXTURE, 1000).unwrap();
+        let out = render_at(Some(&snap), Some(&codex(0, IN_3D)), None, lit(), NOW).unwrap();
+        assert!(out.contains("\x1b[38;5;244m · cx \x1b[0m\x1b[38;5;71mW"), "{out:?}");
+    }
+
+    /// Staleness is per source: an old Codex reading greys itself and earns the `?`,
+    /// and says nothing about the Claude numbers beside it.
+    #[test]
+    fn a_stale_codex_reading_is_grey_and_marked_on_its_own() {
+        let snap = parse(FIXTURE, 1000).unwrap();
+        let old = codex(crate::limits::STALE_AFTER_MS + 1, IN_3D);
+        let out = render_at(Some(&snap), Some(&old), None, lit(), NOW).unwrap();
+        assert!(out.contains("\x1b[38;5;244mW\x1b[0m"), "stale Codex window is grey: {out:?}");
+        assert!(out.contains("\x1b[38;5;179mW"), "Claude's week keeps its colour: {out:?}");
+        assert!(out.ends_with("\x1b[38;5;244m?\x1b[0m"), "{out:?}");
+    }
+
+    /// A Codex window that has reset is dropped, not dashed — and the segment is then
+    /// exactly what it was before Codex existed.
+    #[test]
+    fn a_codex_window_that_has_reset_takes_the_group_with_it() {
+        let snap = parse(FIXTURE, 1000).unwrap();
+        let gone = codex(crate::limits::STALE_AFTER_MS + 1, "2026-08-09T07:00:00Z");
+        assert_eq!(
+            render_at(Some(&snap), Some(&gone), None, plain(), NOW),
+            render_at(Some(&snap), None, None, plain(), NOW),
+            "no tag, and no `?` for a number that is not shown"
+        );
+        assert!(render_at(None, Some(&gone), None, plain(), NOW).is_none());
     }
 
     /// With no cache at all — no credentials, first run — stdin alone is enough.
@@ -855,11 +959,11 @@ mod tests {
                                "seven_day":{"used_percentage":10,"resets_at":1786284000}}}"#,
         );
         assert_eq!(
-            render_at(None, Some(&s), plain(), NOW).unwrap(),
+            render_at(None, None, Some(&s), plain(), NOW).unwrap(),
             "◈ Opus 5·H · 8% │ S/95% ↺2h00  W/10% ↺2h00"
         );
         // No severity arrives on stdin, so it is derived: 95% must read as critical.
-        let coloured = render_at(None, Some(&s), lit(), NOW).unwrap();
+        let coloured = render_at(None, None, Some(&s), lit(), NOW).unwrap();
         assert!(coloured.contains("\x1b[38;5;167mS"), "{coloured:?}");
         assert!(coloured.contains("\x1b[38;5;71mW"), "10% stays green: {coloured:?}");
     }
@@ -869,15 +973,15 @@ mod tests {
         let raw = r#"{"cachedUsageUtilization":{"fetchedAtMs":1,"utilization":{"limits":[
             {"kind":"session","percent":4.6,"severity":"normal"}]}}}"#;
         let snap = parse(raw, 1).unwrap();
-        assert_eq!(render_at(Some(&snap), None, plain(), NOW).unwrap(), "◈ S/5%");
+        assert_eq!(render_at(Some(&snap), None, None, plain(), NOW).unwrap(), "◈ S/5%");
     }
 
     /// Stale data must be visibly stale even where colour is unavailable.
     #[test]
     fn stale_is_marked_without_relying_on_colour() {
         let old = parse(FIXTURE, 1000 + crate::limits::STALE_AFTER_MS + 1).unwrap();
-        assert!(render_at(Some(&old), None, plain(), NOW).unwrap().ends_with('?'));
-        let coloured = render_at(Some(&old), None, lit(), NOW).unwrap();
+        assert!(render_at(Some(&old), None, None, plain(), NOW).unwrap().ends_with('?'));
+        let coloured = render_at(Some(&old), None, None, lit(), NOW).unwrap();
         assert!(coloured.ends_with("?\x1b[0m"));
         assert!(!coloured.contains("\x1b[38;5;167m"), "stale never shows red: {coloured:?}");
     }

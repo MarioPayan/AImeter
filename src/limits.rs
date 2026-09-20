@@ -199,7 +199,12 @@ pub fn read() -> Option<Snapshot> {
     if ours.as_ref().is_some_and(is_current) {
         return ours;
     }
-    let theirs = read_from(&claude_json_path());
+    fresher(ours, read_from(&claude_json_path()))
+}
+
+/// The younger of two readings of the same thing. An unknown age loses to any
+/// known one, and a tie goes to `ours` — the copy we fetched ourselves.
+pub(crate) fn fresher(ours: Option<Snapshot>, theirs: Option<Snapshot>) -> Option<Snapshot> {
     match (ours, theirs) {
         (Some(a), Some(b)) => {
             Some(if a.age_ms.unwrap_or(i64::MAX) <= b.age_ms.unwrap_or(i64::MAX) { a } else { b })
@@ -211,7 +216,7 @@ pub fn read() -> Option<Snapshot> {
 /// Young enough that the other copy cannot beat it by a margin worth reading a
 /// 200 KB file for: our own refresh runs on this same interval, so anything inside
 /// it is as current as this tool ever gets.
-fn is_current(snapshot: &Snapshot) -> bool {
+pub(crate) fn is_current(snapshot: &Snapshot) -> bool {
     snapshot
         .age_ms
         .is_some_and(|age| (0..crate::fetch::refresh_after().as_millis() as i64).contains(&age))

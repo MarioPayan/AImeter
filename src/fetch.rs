@@ -55,7 +55,7 @@ pub fn disabled() -> bool {
     off_switch(std::env::var("AIMETER_NO_FETCH").ok().as_deref())
 }
 
-fn off_switch(raw: Option<&str>) -> bool {
+pub(crate) fn off_switch(raw: Option<&str>) -> bool {
     matches!(raw.map(str::trim), Some(v) if !v.is_empty() && v != "0")
 }
 
@@ -146,7 +146,7 @@ fn is_newer(tag: &str, running: &str) -> bool {
 /// `%LOCALAPPDATA%` is where Windows puts exactly this kind of file. It is read
 /// unconditionally rather than behind a `cfg`: nothing else sets that variable, and
 /// a machine that does set it has said where it wants the cache.
-fn data_dir() -> PathBuf {
+pub(crate) fn data_dir() -> PathBuf {
     std::env::var_os("XDG_DATA_HOME")
         .or_else(|| std::env::var_os("LOCALAPPDATA"))
         .map(PathBuf::from)
@@ -168,7 +168,7 @@ fn attempt_path() -> PathBuf {
     data_dir().join("usage.attempt")
 }
 
-fn now_ms() -> i64 {
+pub(crate) fn now_ms() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
 }
 
@@ -217,18 +217,23 @@ pub fn fetch_now() -> Result<String, String> {
 
     let text = serde_json::to_string(&store_shape(&body, now_ms())).map_err(|e| e.to_string())?;
 
-    let path = cache_path();
+    write_atomically(&cache_path(), &text)?;
+    Ok(text)
+}
+
+/// Write through a temp file and a rename, creating the directory if need be.
+///
+/// The temp name carries the pid. Two `aimeter line` renders can clear the
+/// attempt-file check in the same millisecond and spawn two fetches; a shared
+/// temp path lets them interleave their writes into one file that both then
+/// rename. The rename stays atomic, so a pid is the whole fix.
+pub(crate) fn write_atomically(path: &std::path::Path, text: &str) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    // The temp name carries the pid. Two `aimeter line` renders can clear the
-    // attempt-file check in the same millisecond and spawn two fetches; a shared
-    // temp path lets them interleave their writes into one file that both then
-    // rename. The rename stays atomic, so a pid is the whole fix.
     let tmp = path.with_extension(format!("{}.tmp", std::process::id()));
-    std::fs::write(&tmp, &text).map_err(|e| e.to_string())?;
-    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
-    Ok(text)
+    std::fs::write(&tmp, text).map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, path).map_err(|e| e.to_string())
 }
 
 /// Wrap the response in exactly the shape Claude Code uses, so `limits::parse`
