@@ -117,7 +117,7 @@ callout(mid(11), 0, BASE + 10, 244)                     # ↺2h11
 label(mid(11), 260, "resets in", 12)
 callout(span(19, 21), 0, BASE + 10, 244)                # @F/100%
 label(span(19, 21), 260, "this week, one model", 12)
-callout(span(24, 29), 0, BASE + 10, 206)                # · cx W/33% ↺15h
+callout(span(24, 29), 0, BASE + 10, 206)                # · cx W/33% ↺14h52
 label(span(24, 29), 222, "codex, if installed", 12)
 
 # ── the strip: colour, effort, and the rest, side by side ────────────────────
