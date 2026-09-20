@@ -7,6 +7,7 @@ UI. The only part that is exact is the segment itself, which is placed token by
 token in the real xterm-256 colours the binary emits.
 """
 import pathlib
+import re
 from xml.sax.saxutils import escape
 
 OUT = pathlib.Path(__file__).resolve().parent.parent / "docs" / "images" / "console.svg"
@@ -23,6 +24,23 @@ ADV = SIZE * 0.6
 PAD = 26
 
 out = []
+
+# The segment, exactly as the binary prints it; `line.rs` asserts the same line
+# against the real renderer and this refuses to draw anything else.
+SEGMENT = [
+    ("◈", TAG), (" ", DIM), ("Opus 5", MODEL), ("·X", DIM), (" · ", DIM), ("23%", OK),
+    (" │ ", DIM),
+    ("S", OK), ("/", DIM), ("4%", OK), (" ", DIM), ("↺2h11", DIM), ("  ", DIM),
+    ("W", WARN), ("/", DIM), ("77%", WARN), (" ", DIM), ("↺3d", DIM), ("  ", DIM),
+    ("@F", CRIT), ("/", DIM), ("100%", CRIT), (" ", DIM), ("↺3d", DIM),
+    (" · cx ", DIM), ("W", OK), ("/", DIM), ("33%", OK), (" ", DIM), ("↺14h52", DIM),
+]
+
+_src = pathlib.Path(__file__).resolve().parent.parent / "src" / "line.rs"
+_want = re.search(r'README_SEGMENT: &str =\s*"(.*)";', _src.read_text()).group(1)
+if "".join(s for s, _ in SEGMENT) != _want:
+    raise SystemExit(f"segment drift\n  drawn:  {''.join(s for s, _ in SEGMENT)!r}\n"
+                     f"  line.rs: {_want!r}")
 
 
 def text(x, y, s, fill=BODY, size=SIZE, weight="normal"):
@@ -78,19 +96,14 @@ out.append(
 # ── the statusline row ───────────────────────────────────────────────────────
 BAR = H - 34
 out.append(f'<line x1="0" y1="{BAR - 22}" x2="{W}" y2="{BAR - 22}" stroke="{RULE}"/>')
-tokens(PAD, BAR, [
-    ("◈", TAG), (" ", DIM), ("Opus 5", MODEL), ("·X", DIM), (" · ", DIM), ("23%", OK),
-    (" │ ", DIM),
-    ("S", OK), ("/", DIM), ("4%", OK), (" ", DIM), ("↺2h11", DIM), ("  ", DIM),
-    ("W", WARN), ("/", DIM), ("77%", WARN), (" ", DIM), ("↺3d", DIM), ("  ", DIM),
-    ("@F", CRIT), ("/", DIM), ("100%", CRIT), (" ", DIM), ("↺3d", DIM),
-], size=15)
+tokens(PAD, BAR, SEGMENT, size=15)
 
 svg = (
     f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" '
     f'role="img" aria-label="A terminal window with a short coding session, and the AImeter '
     f'segment along the bottom: the model, its reasoning effort and context window, then the '
-    f'5-hour, weekly and model-scoped limits with their reset countdowns.">'
+    f'5-hour, weekly and model-scoped limits with their reset countdowns, and Codex\'s own '
+    f'weekly limit behind a cx.">'
     + "".join(out) + "</svg>\n"
 )
 OUT.write_text(svg)
