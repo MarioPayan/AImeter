@@ -96,6 +96,38 @@ Ranking is by recency, so nothing needs a flag to say which source is in play. s
 on the numbers it carries because it is regenerated every render. The model-scoped window
 exists only in the other two.
 
+### Codex, if it is installed
+
+Most people who install this have no Codex, and for them nothing here exists. Whether
+there is a `~/.codex` (or `$CODEX_HOME`) directory is asked first, and a no costs one
+`stat`: no log is looked for, no token is read, no request is made, and no `cx` is ever
+printed — the segment is byte-for-byte the one it was before Codex support. The same is
+true of a Codex that is installed but has nothing to report: signed in with an API key,
+which has no plan to meter, or never yet run.
+
+With that directory on the machine, a second group follows Claude's windows behind a
+`cx`. It has the same two kinds of source, ranked the same way:
+
+| Source | Gives | Needs |
+|---|---|---|
+| `GET chatgpt.com/backend-api/wham/usage` | Codex's windows, now | the token in `~/.codex/auth.json` |
+| the newest `~/.codex/sessions/…/rollout-*.jsonl` | the same windows, as of your last Codex turn | nothing |
+
+Codex appends a `token_count` event carrying its limits after every model response, so
+the log needs no credentials and no network — and is exactly as current as the last time
+you used Codex, which for an occasional user means days. The endpoint is the one Codex's
+own `/status` reads, and it is what keeps the number current while Codex is closed.
+
+Only the last 64 KB of the log is read, and only when our endpoint copy is older than
+the refresh interval: single lines of 2 MB have been seen in those files, and a render
+has two milliseconds. The log is chosen by name — the path is zero-padded dates and a
+timestamp — so finding it costs three directory listings and no `stat`.
+
+Both sources describe a window by its length, and that is what picks the label: five
+hours is `S`, seven days is `W`, anything else is printed as sent (`3d`, `12h`). The
+slot is not used — `primary` has been observed holding the weekly window with
+`secondary` empty. Codex sends no severity, so the 50/90 fallback applies.
+
 ### The token
 
 > **The usage endpoint is undocumented, and reaching it means reading your token.**
@@ -113,6 +145,17 @@ exists only in the other two.
 > `S` and `W`, the cache covers the rest, and only the model-scoped limit gets less
 > current. A long `AIMETER_REFRESH_SECS` is *not* an off switch — with nothing cached,
 > the first run fetches regardless.
+>
+> **With Codex installed, the same goes for its token.** `aimeter fetch` reads the access
+> token in `~/.codex/auth.json` and sends it, with the account id beside it, to
+> `chatgpt.com` — an endpoint OpenAI publishes for Codex, not for third parties. Read,
+> never written: OpenAI rotates refresh tokens, so refreshing it here would log Codex
+> out. The token lasts ten days; leave Codex closed longer than that and the endpoint
+> answers 401, the session log is all there is, and a rejected token is not presented
+> again until Codex rewrites the file. The response names your account — email, ids,
+> credits — and only the two rate-limit windows are written to disk.
+> `AIMETER_NO_FETCH=1` stops this read too, and `AIMETER_NO_CODEX=1` removes Codex from
+> the segment altogether.
 
 ### Why the endpoint exists here at all
 
@@ -133,6 +176,12 @@ rather than its last reading, because that reading describes a counter which has
 back to zero. A window reporting no reset time gets no clock — the two weekly windows do
 reset together to the millisecond, so borrowing one for the other would almost certainly
 be right, and almost is not a claim the API made.
+
+**Keep a dead group on the line.** Claude's `—` sits beside a tool that is running and
+about to report something newer. Codex may not be opened again for a fortnight, so a
+Codex window that has reset is dropped instead, and when none is left the `cx` goes with
+it — the segment is then byte-for-byte what it is without Codex. A reading that is old
+but whose window is still open stays, grey, and earns the `?`.
 
 **Vouch for a number it did not get.** Staleness is tracked per limit, not per segment.
 stdin covers `S` and `W` and nothing else, so when a fresh payload arrives beside a
@@ -159,6 +208,10 @@ model's initial is the 7-day window scoped to that model. The `@` is what distin
 the scoped window — not the letter — so a Sonnet-scoped `@S` can never be read as the
 session's `S`.
 
+`cx` opens the Codex group, and everything after it is Codex's: `cx S/12% ↺2h  W/33% ↺6d`.
+The letters keep their meaning — five hours, seven days — and the tag says whose they
+are. It is grey for the same reason the slash is: whose window it is is not a severity.
+
 Reasoning effort is one letter: `L` `M` `H` `X`, and `MAX` spelled out because `medium`
 already took `M`. A level it does not recognise prints nothing; a wrong letter is worse
 than none.
@@ -172,7 +225,8 @@ effort it actually asks for. The mark is there for the day the payload names it.
 | Variable | Effect |
 |---|---|
 | `AIMETER_ASCII` | `1` forces plain-ASCII glyphs (`* \| ~ ^ .`), `0` forbids the fallback; unset, a non-UTF-8 locale switches it on automatically |
-| `AIMETER_NO_FETCH` | never read the token, and make no network call at all |
+| `AIMETER_NO_CODEX` | leave Codex out of the segment: no log read, no token read, no `cx` |
+| `AIMETER_NO_FETCH` | never read a token — Claude Code's or Codex's — and make no network call at all |
 | `AIMETER_NO_UPDATE_CHECK` | never ask GitHub whether there is a newer release |
 | `AIMETER_REFRESH_SECS` | how stale the limits may get before a background refresh (60) |
 | `NO_COLOR` | print the segment without escape codes |
@@ -228,11 +282,12 @@ cargo clippy --all-targets -- -D warnings && cargo fmt --check
 ### Layout
 
 ```
-src/                     the binary, about a thousand lines
+src/                     the binary, about fifteen hundred lines
   main.rs                two commands, and the help text
   line.rs                renders the segment — every layout decision lives here
   limits.rs              parses whatever the API or the cache hands over
   fetch.rs               the usage endpoint, the update check, the data directory
+  codex.rs               the same three jobs for Codex: its endpoint, its log, its shapes
 install.sh               downloads a binary, verifies its checksum, wires the statusline
 install.ps1              the same, for Windows, where statusLine points at the exe
 tools/                   generate the two README images; not part of the build

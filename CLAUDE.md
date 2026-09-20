@@ -33,11 +33,18 @@ writes that file and never stores the token, and `AIMETER_NO_FETCH=1` disables i
 entirely at the cost of the model-scoped limit being less current. Details in
 [docs/how-it-works.md](docs/how-it-works.md).
 
+**And this, if they have Codex installed:** it does the same with the token in
+`~/.codex/auth.json`, against an endpoint OpenAI does not document, to show Codex's
+limits behind a `cx`. Same rules — never written, never stored, `AIMETER_NO_FETCH=1`
+stops it — and `AIMETER_NO_CODEX=1` leaves Codex out altogether. Without Codex installed
+none of it happens.
+
 ## If you are working on this repo
 
-Four source files, about a thousand lines. `line.rs` renders the segment, `limits.rs`
-parses whatever the API or the cache hands over, `fetch.rs` talks to the endpoint,
-`main.rs` is the two commands.
+Five source files, about fifteen hundred lines. `line.rs` renders the segment,
+`limits.rs` parses whatever the API or the cache hands over, `fetch.rs` talks to the
+endpoint, `codex.rs` is all three of those again for Codex, `main.rs` is the two
+commands.
 
 Before committing:
 
