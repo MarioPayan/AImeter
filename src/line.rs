@@ -879,6 +879,31 @@ mod tests {
         assert!(render_at(None, None, Some(&Session::default()), plain(), NOW).is_none());
     }
 
+    /// The exact line the two README image generators draw, token by token.
+    ///
+    /// They read this literal back out of this file and refuse to run if their
+    /// tokens no longer spell it. CI regenerating `docs/images` proves the SVGs
+    /// are current; this proves they describe a segment the binary really prints.
+    /// Without it a generator can drift quietly, which is how `↺15h` was once
+    /// drawn for a countdown that always carries its minutes.
+    const README_SEGMENT: &str =
+        "◈ Opus 5·X · 23% │ S/4% ↺2h11  W/77% ↺3d  @F/100% ↺3d · cx W/33% ↺14h52";
+
+    #[test]
+    fn the_readme_images_draw_a_segment_this_really_prints() {
+        let snap = parse(FIXTURE, 1000).unwrap();
+        // NOW + 14h52, so the countdown lands on the value the images show.
+        let cx = codex(0, "2026-08-10T02:52:00Z");
+        let s = session(
+            r#"{"model":{"display_name":"Opus 5"},"effort":{"level":"xhigh"},
+                "context_window":{"used_percentage":23}}"#,
+        );
+        assert_eq!(
+            render_at(Some(&snap), Some(&cx), Some(&s), plain(), NOW).unwrap(),
+            README_SEGMENT
+        );
+    }
+
     /// A Codex reading taken `age_ms` ago: 33% of a week that resets at `resets_at`.
     fn codex(age_ms: i64, resets_at: &str) -> Snapshot {
         Snapshot {

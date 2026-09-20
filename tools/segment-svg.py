@@ -9,6 +9,7 @@ whatever monospace font the viewer has — which is what lets the callout lines
 actually point at the thing they label.
 """
 import pathlib
+import re
 from xml.sax.saxutils import escape
 
 OUT = pathlib.Path(__file__).resolve().parent.parent / "docs" / "images" / "segment.svg"
@@ -33,7 +34,25 @@ TOKENS = [
     ("S", OK), ("/", DIM), ("4%", OK), (" ", DIM), ("↺2h11", DIM), ("  ", DIM),
     ("W", WARN), ("/", DIM), ("77%", WARN), (" ", DIM), ("↺3d", DIM), ("  ", DIM),
     ("@F", CRIT), ("/", DIM), ("100%", CRIT), (" ", DIM), ("↺3d", DIM),
+    # Codex, on a machine that has it. Drawn because the segment can print it,
+    # and labelled "if installed" because most machines cannot.
+    (" · cx ", DIM), ("W", OK), ("/", DIM), ("33%", OK), (" ", DIM), ("↺14h52", DIM),
 ]
+
+
+def check_against_the_renderer():
+    """Refuse to draw a segment the binary does not print.
+
+    Regenerating proves these images are current, not that they are right: a
+    generator agrees with itself forever. `line.rs` asserts the same literal
+    against the real renderer, so comparing against it ties the picture to the
+    code. It caught `↺15h`, a countdown shape `until()` never produces.
+    """
+    src = pathlib.Path(__file__).resolve().parent.parent / "src" / "line.rs"
+    want = re.search(r'README_SEGMENT: &str =\s*"(.*)";', src.read_text()).group(1)
+    got = "".join(s for s, _ in TOKENS)
+    if got != want:
+        raise SystemExit(f"segment drift\n  drawn:  {got!r}\n  line.rs: {want!r}")
 
 
 def draw_segment():
@@ -69,6 +88,7 @@ def callout(centre, text_y, tick_from, tick_to):
     return text_y
 
 
+check_against_the_renderer()
 spans = draw_segment()
 mid = lambda i: (spans[i][0] + spans[i][1]) / 2          # noqa: E731
 span = lambda a, b: (spans[a][0] + spans[b][1]) / 2      # noqa: E731
@@ -77,7 +97,7 @@ out.insert(0, f'<rect x="0" y="0" width="{W}" height="{H}" rx="7" fill="{BG}"/>'
 out.insert(1, f'<rect x="0.5" y="0.5" width="{W-1}" height="{H-1}" rx="7" fill="none" stroke="{EDGE}"/>')
 
 # ── what this line is ────────────────────────────────────────────────────────
-label(28, 40, "AImeter — your Claude Code limits, in the statusline", 12.5, HEAD, "start")
+label(28, 40, "AImeter — your Claude Code limits, and Codex's, in the statusline", 12.5, HEAD, "start")
 out.append(f'<line x1="28" y1="52" x2="{W-28}" y2="52" stroke="{EDGE}"/>')
 
 # ── callouts above ───────────────────────────────────────────────────────────
@@ -97,6 +117,8 @@ callout(mid(11), 0, BASE + 10, 244)                     # ↺2h11
 label(mid(11), 260, "resets in", 12)
 callout(span(19, 21), 0, BASE + 10, 244)                # @F/100%
 label(span(19, 21), 260, "this week, one model", 12)
+callout(span(24, 29), 0, BASE + 10, 206)                # · cx W/33% ↺15h
+label(span(24, 29), 222, "codex, if installed", 12)
 
 # ── the strip: colour, effort, and the rest, side by side ────────────────────
 STRIP = 300
@@ -135,7 +157,8 @@ svg = (
     f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" '
     f'role="img" aria-label="The AImeter statusline segment, annotated: the model, its '
     f'reasoning effort and how full the context window is, then the 5-hour, weekly and '
-    f'model-scoped limits with how much is spent and when each resets.">'
+    f'model-scoped limits with how much is spent and when each resets, and last a cx '
+    f'group carrying the same for Codex on a machine that has it.">'
     + "".join(out) + "</svg>\n"
 )
 OUT.write_text(svg)

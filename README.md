@@ -3,11 +3,11 @@
 Your Claude Code rate limits, in the statusline — and Codex's beside them, if you use
 it. One binary, ~2 ms, no daemon.
 
-![A terminal session with the AImeter segment along the bottom](docs/images/console.svg)
+![A terminal session with the AImeter segment along the bottom, ending in a cx group for Codex](docs/images/console.svg)
 
 ## What you are looking at
 
-![The segment annotated: model, reasoning effort and context window on the left; the 5-hour, weekly and model-scoped limits with how much is spent and when each resets on the right](docs/images/segment.svg)
+![The segment annotated: model, reasoning effort and context window on the left; the 5-hour, weekly and model-scoped limits with how much is spent and when each resets on the right; and last a cx group carrying Codex's own weekly limit](docs/images/segment.svg)
 
 ## Get it
 
