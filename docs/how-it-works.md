@@ -84,7 +84,7 @@ of this is concerned; use `install.sh` there.
 |---|---|---|
 | the statusline payload on stdin | model, reasoning effort, context window, `S` and `W` | nothing |
 | `GET /api/oauth/usage` | every window, including the model-scoped one | your OAuth token |
-| `~/.claude.json` → `cachedUsageUtilization` | the same object, as of whenever Claude Code last refreshed it | nothing |
+| `~/.claude.json` → `cachedUsageUtilization` | the same object, as of whenever Claude Code last refreshed it — older versions only; 2.1.316 no longer writes it | nothing |
 
 Claude Code pipes a statusline command about fifteen fields on every render; four are
 read. `context_window.used_percentage` and `effort.level` are free — no credentials, no
@@ -141,9 +141,9 @@ slot is not used — `primary` has been observed holding the weekly window with
 > the one your editor is using. Only the `limits[]` array from the response is written to
 > disk; the response also carries a `spend` object, which is dropped.
 >
-> **`AIMETER_NO_FETCH=1` turns it off entirely.** Everything still works: stdin covers
-> `S` and `W`, the cache covers the rest, and only the model-scoped limit gets less
-> current. A long `AIMETER_REFRESH_SECS` is *not* an off switch — with nothing cached,
+> **`AIMETER_NO_FETCH=1` turns it off entirely.** stdin still covers `S` and `W`. The
+> model-scoped limit then depends on Claude Code's cache, which recent versions (2.1.316
+> on) no longer write, so with them it is simply not shown. A long `AIMETER_REFRESH_SECS` is *not* an off switch — with nothing cached,
 > the first run fetches regardless.
 >
 > **With Codex installed, the same goes for its token.** `aimeter fetch` reads the access

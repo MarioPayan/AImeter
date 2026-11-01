@@ -32,7 +32,8 @@ and prints whatever is already on disk rather than waiting for the network.
 `fetch` reads the OAuth token in ~/.claude/.credentials.json to call an endpoint
 Anthropic does not document. It never writes that file, and every failure falls
 back to Claude Code's own cache. Set AIMETER_NO_FETCH to stop it reading the
-token at all; everything still works, only the model-scoped limit ages. See
+token at all; stdin still covers S and W, but the model-scoped limit then needs
+a Claude Code old enough to cache it, and recent ones do not. See
 README.md.
 
 With Codex installed, a `cx` group shows its limits the same way. `fetch` reads
