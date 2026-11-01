@@ -30,7 +30,8 @@ else, fall back to `cargo install aimeter`.
 **Tell them this before they run it:** AImeter reads the OAuth token in
 `~/.claude/.credentials.json` to call an endpoint Anthropic does not document. It never
 writes that file and never stores the token, and `AIMETER_NO_FETCH=1` disables it
-entirely at the cost of the model-scoped limit being less current. Details in
+entirely at the cost of the model-scoped limit (recent Claude Code versions no longer
+cache it anywhere AImeter can read, so with the fetch off it is simply not shown). Details in
 [docs/how-it-works.md](docs/how-it-works.md).
 
 **And this, if they have Codex installed:** it does the same with the token in

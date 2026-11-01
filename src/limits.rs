@@ -1,7 +1,8 @@
 //! Claude Code's own view of your rate limits, read from the cache it keeps.
 //!
 //! `~/.claude.json` holds `cachedUsageUtilization`, refreshed by the CLI while a
-//! session runs. Two decisions about how it is parsed are worth stating, because
+//! session runs — or did: Claude Code 2.1.316 no longer writes it, so on recent
+//! versions this is our own fetched copy's shape and nothing more. Two decisions about how it is parsed are worth stating, because
 //! both are about surviving a schema that is not ours:
 //!
 //!   - Only `utilization.limits[]` is read. Its siblings (`five_hour`, `seven_day`,

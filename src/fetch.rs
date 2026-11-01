@@ -20,8 +20,8 @@
 //!
 //!   - **It can be turned off.** `AIMETER_NO_FETCH` stops the token being read at
 //!     all. Reading someone's credentials needs an off switch that is not
-//!     "uninstall it", and everything still works without this — stdin and the
-//!     cache cover every window but the model-scoped one.
+//!     "uninstall it". Without this, stdin covers the 5-hour and 7-day windows;
+//!     the model-scoped one needs a Claude Code old enough to write its cache.
 //!
 //! This uses an endpoint issued to another application. It works today and may
 //! not tomorrow — every failure here is silent and falls back to the cache.
@@ -48,9 +48,9 @@ fn parse_refresh(raw: Option<&str>) -> Duration {
 /// that is not "uninstall it". A long `AIMETER_REFRESH_SECS` is not that switch:
 /// the first run has nothing cached, so it fetches once regardless.
 ///
-/// Everything still works with this set — stdin covers the 5-hour and 7-day
-/// windows and Claude Code's cache covers the rest. Only the model-scoped limit
-/// gets less current.
+/// With this set stdin still covers the 5-hour and 7-day windows. The
+/// model-scoped limit then comes only from `~/.claude.json`, which Claude Code
+/// stopped writing around 2.1.316, so on a recent version it is not shown.
 pub fn disabled() -> bool {
     off_switch(std::env::var("AIMETER_NO_FETCH").ok().as_deref())
 }
